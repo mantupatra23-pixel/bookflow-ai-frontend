@@ -271,7 +271,7 @@ export default function Home() {
             className="flex items-center justify-center gap-3 bg-slate-900 hover:bg-black text-white font-semibold py-3 px-6 rounded-lg text-sm transition-all shadow-md"
           >
             <svg className="w-4 h-4 fill-current" viewBox="0 0 23 23">
-              <path d="M0 0h11v11H0zM12 0h11v11H12zM0 12h11v11H0zM12 12h11v11H12z"/>
+              <path d="M0 0h11v11H0zM12 0h11v11H0zM0 12h11v11H0zM12 12h11v11H12z"/>
             </svg>
             Sign up with Microsoft
           </button>
@@ -409,7 +409,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* BookFlow Core Features Showcase (Calendly Screenshot 64308 & 64309 Style) */}
+      {/* BookFlow Core Features Showcase with Unsplash UI Visuals */}
       <section className="py-20 px-6 max-w-5xl mx-auto text-center">
         <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 mb-4">
           BookFlow makes scheduling simple
@@ -458,15 +458,12 @@ export default function Home() {
                   Connect Calendars Now
                 </button>
               </div>
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-3">
-                <div className="p-3 bg-slate-50 rounded-lg flex items-center justify-between font-bold text-xs">
-                  <span>📅 Google Calendars</span>
-                  <span className="text-emerald-600 font-extrabold">✓ Connected</span>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-lg flex items-center justify-between font-bold text-xs">
-                  <span>📬 Outlook & Exchange</span>
-                  <span className="text-blue-600 font-extrabold">Connected</span>
-                </div>
+              <div className="rounded-xl overflow-hidden shadow-md border border-slate-200">
+                <img
+                  src="https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=800&q=80"
+                  alt="Calendar Sync Visual"
+                  className="w-full h-48 object-cover"
+                />
               </div>
             </div>
           )}
@@ -479,9 +476,12 @@ export default function Home() {
                   Set custom working hours, EST/PST US timezones, buffer times between meetings, and daily meeting limits.
                 </p>
               </div>
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-2">
-                <div className="text-xs font-bold text-slate-700">Mon - Fri: 09:00 AM - 05:00 PM EST</div>
-                <div className="text-xs text-slate-500">15 min buffer before & after each call</div>
+              <div className="rounded-xl overflow-hidden shadow-md border border-slate-200">
+                <img
+                  src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=800&q=80"
+                  alt="Availability Visual"
+                  className="w-full h-48 object-cover"
+                />
               </div>
             </div>
           )}
@@ -494,15 +494,18 @@ export default function Home() {
                   Automatically create unique Zoom, Google Meet, or Microsoft Teams call links when a booking is confirmed.
                 </p>
               </div>
-              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-2 font-bold text-xs">
-                <div className="p-2 bg-blue-50 text-blue-700 rounded">📹 Zoom Call Integrated</div>
-                <div className="p-2 bg-emerald-50 text-emerald-700 rounded">🟢 Google Meet Ready</div>
+              <div className="rounded-xl overflow-hidden shadow-md border border-slate-200">
+                <img
+                  src="https://images.unsplash.com/photo-1588196749597-9ff075ee6b5b?auto=format&fit=crop&w=800&q=80"
+                  alt="Video Conference Visual"
+                  className="w-full h-48 object-cover"
+                />
               </div>
             </div>
           )}
         </div>
 
-        {/* More Than a Scheduling Link Section (Calendly Screenshot 64309) */}
+        {/* More Than a Scheduling Link Section */}
         <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-4">
           More than a scheduling link
         </h2>
@@ -538,36 +541,48 @@ export default function Home() {
             </button>
           </div>
 
-          {activeMoreFeature === "workflows" && (
-            <div className="space-y-3">
-              <h4 className="font-bold text-slate-900 text-base">Automated SMS & Email Reminders</h4>
-              <p className="text-xs text-slate-600">
-                Reduce no-shows by automatically sending email confirmations, SMS reminders, and follow-up thank you notes.
-              </p>
-            </div>
-          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            <div>
+              {activeMoreFeature === "workflows" && (
+                <div className="space-y-3">
+                  <h4 className="font-bold text-slate-900 text-base">Automated SMS & Email Reminders</h4>
+                  <p className="text-xs text-slate-600">
+                    Reduce no-shows by automatically sending email confirmations, SMS reminders, and follow-up thank you notes.
+                  </p>
+                </div>
+              )}
 
-          {activeMoreFeature === "routing" && (
-            <div className="space-y-3">
-              <h4 className="font-bold text-slate-900 text-base">Smart Round Robin & Team Routing</h4>
-              <p className="text-xs text-slate-600">
-                Route leads to the right team member based on availability, territory, or specialized expertise.
-              </p>
-            </div>
-          )}
+              {activeMoreFeature === "routing" && (
+                <div className="space-y-3">
+                  <h4 className="font-bold text-slate-900 text-base">Smart Round Robin & Team Routing</h4>
+                  <p className="text-xs text-slate-600">
+                    Route leads to the right team member based on availability, territory, or specialized expertise.
+                  </p>
+                </div>
+              )}
 
-          {activeMoreFeature === "extensions" && (
-            <div className="space-y-3">
-              <h4 className="font-bold text-slate-900 text-base">Chrome, Edge & Gmail Extensions</h4>
-              <p className="text-xs text-slate-600">
-                Embed your availability directly into Gmail emails, LinkedIn messages, or CRM records in one click.
-              </p>
+              {activeMoreFeature === "extensions" && (
+                <div className="space-y-3">
+                  <h4 className="font-bold text-slate-900 text-base">Chrome, Edge & Gmail Extensions</h4>
+                  <p className="text-xs text-slate-600">
+                    Embed your availability directly into Gmail emails, LinkedIn messages, or CRM records in one click.
+                  </p>
+                </div>
+              )}
             </div>
-          )}
+
+            <div className="rounded-xl overflow-hidden shadow-md border border-slate-200">
+              <img
+                src="https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=800&q=80"
+                alt="Automated Workflows Visual"
+                className="w-full h-44 object-cover"
+              />
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Security Section (Calendly Screenshot 64310) */}
+      {/* Security Section */}
       <section className="py-16 bg-slate-50 border-t border-slate-200 text-center">
         <h2 className="text-3xl font-extrabold text-slate-900 mb-6">
           Built to keep your organization secure
@@ -591,23 +606,7 @@ export default function Home() {
         </p>
       </section>
 
-      {/* Power Up CTA */}
-      <section className="py-16 px-6 text-center max-w-3xl mx-auto">
-        <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-4">
-          Power up your scheduling
-        </h2>
-        <p className="text-xs sm:text-sm text-slate-500 mb-8">Get started in seconds — for free.</p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <button onClick={handleGoogleAuth} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-lg text-sm transition-all shadow-md">
-            Start for free
-          </button>
-          <button onClick={() => setShowAuthModal(true)} className="border border-slate-300 text-slate-700 hover:bg-slate-50 font-semibold px-8 py-3 rounded-lg text-sm transition-all">
-            Get a demo
-          </button>
-        </div>
-      </section>
-
-      {/* Complete Footer (Calendly Screenshot 64311 Style) */}
+      {/* Footer */}
       <footer className="bg-white border-t border-slate-200 py-12 px-6">
         <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-xs text-slate-600 mb-12">
           <div>
