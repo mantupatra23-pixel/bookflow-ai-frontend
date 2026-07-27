@@ -13,6 +13,14 @@ export default function Home() {
   const [booked, setBooked] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
 
+  // Paid Meeting & Stripe States
+  const [eventType, setEventType] = useState<"free" | "paid">("free");
+  const [showStripeModal, setShowStripeModal] = useState(false);
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvc, setCardCvc] = useState("");
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+
   // Feature Tabs State
   const [activeFeature, setActiveFeature] = useState("calendar");
   const [activeMoreFeature, setActiveMoreFeature] = useState("workflows");
@@ -83,34 +91,137 @@ export default function Home() {
     setShowAuthModal(false);
   };
 
-  const handleBooking = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleBookingInitiate = () => {
     if (!selectedSlot) return;
-    setBookingLoading(true);
+    if (eventType === "paid") {
+      setShowStripeModal(true);
+    } else {
+      executeBooking();
+    }
+  };
 
+  const executeBooking = async () => {
+    setBookingLoading(true);
     try {
       await fetch(`${BACKEND_URL}/api/v1/bookings/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: "demo-user-id",
-          event_type_id: "demo-event-id",
+          event_type_id: eventType === "paid" ? "paid-strategy-session" : "free-discovery-call",
           client_name: clientName || "BookFlow Guest",
           client_email: clientEmail || "guest@bookflow.ai",
           start_time: selectedSlot,
-          us_timezone_code: "EST"
+          us_timezone_code: "EST",
+          amount_paid: eventType === "paid" ? 150 : 0
         })
       });
       setBooked(true);
+      setShowStripeModal(false);
     } catch (err) {
       setBooked(true);
+      setShowStripeModal(false);
     } finally {
       setBookingLoading(false);
     }
   };
 
+  const handleStripePayment = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPaymentSuccess(true);
+    executeBooking();
+  };
+
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans antialiased selection:bg-blue-100 selection:text-blue-700">
+      {/* Stripe Payment Modal */}
+      {showStripeModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 relative">
+            <button
+              onClick={() => setShowStripeModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 font-bold text-lg"
+            >
+              ✕
+            </button>
+
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-xs font-black bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-md uppercase tracking-wider">
+                Stripe Secure Checkout
+              </span>
+            </div>
+
+            <h3 className="text-2xl font-extrabold text-slate-900 mb-1">
+              Complete $150 Payment
+            </h3>
+            <p className="text-xs text-slate-500 mb-6">
+              1-on-1 Paid Strategy Session (45 min) via Zoom/Google Meet.
+            </p>
+
+            <form onSubmit={handleStripePayment} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Card Number
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="4242 •••• •••• 4242"
+                  value={cardNumber}
+                  onChange={(e) => setCardNumber(e.target.value)}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-blue-600"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Expires (MM/YY)
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="12/28"
+                    value={cardExpiry}
+                    onChange={(e) => setCardExpiry(e.target.value)}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-blue-600"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    CVC
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="123"
+                    value={cardCvc}
+                    onChange={(e) => setCardCvc(e.target.value)}
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-blue-600"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={bookingLoading}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg text-sm transition-all shadow-md flex items-center justify-center gap-2"
+                >
+                  {bookingLoading ? "Processing Payment..." : "🔒 Pay $150 & Confirm Booking"}
+                </button>
+              </div>
+
+              <div className="text-center text-[11px] text-slate-400 pt-2 flex items-center justify-center gap-2">
+                <span>⚡ Powered by Stripe</span>
+                <span>•</span>
+                <span>256-bit SSL Encryption</span>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Auth Modal */}
       {showAuthModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -191,14 +302,6 @@ export default function Home() {
                 {authMode === "login" ? "Log In" : "Get Started"}
               </button>
             </form>
-
-            <div className="mt-4 pt-4 border-t border-slate-100 text-center text-xs text-slate-500">
-              {authMode === "login" ? (
-                <>Don&apos;t have an account? <button onClick={() => setAuthMode("signup")} className="text-blue-600 underline font-semibold">Sign up</button></>
-              ) : (
-                <>Already have an account? <button onClick={() => setAuthMode("login")} className="text-blue-600 underline font-semibold">Log in</button></>
-              )}
-            </div>
           </div>
         </div>
       )}
@@ -276,17 +379,43 @@ export default function Home() {
             Sign up with Microsoft
           </button>
         </div>
-
-        <p className="text-xs text-slate-500">
-          Or <button onClick={() => { setAuthMode("signup"); setShowAuthModal(true); }} className="text-blue-600 underline font-semibold">Sign up free with email</button>. No credit card required.
-        </p>
       </section>
 
-      {/* Live Interactive Booking Widget (Calendly Mockup) */}
+      {/* Live Interactive Booking Widget (Free vs Paid Event) */}
       <section className="max-w-5xl mx-auto px-6 mb-20">
         <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden p-6 sm:p-8">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">
-            Share your booking page
+          
+          {/* Event Type Toggle Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-100">
+            <div>
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-1">
+                Select Meeting Type
+              </span>
+              <h3 className="text-lg font-bold text-slate-900">Fatima Sy Scheduling Page</h3>
+            </div>
+
+            <div className="flex bg-slate-100 p-1 rounded-xl gap-1 self-start sm:self-auto">
+              <button
+                onClick={() => setEventType("free")}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                  eventType === "free"
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Free Discovery Call ($0)
+              </button>
+              <button
+                onClick={() => setEventType("paid")}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
+                  eventType === "paid"
+                    ? "bg-blue-600 text-white shadow-sm"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                ⚡ Paid Strategy Session ($150)
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 divide-y md:divide-y-0 md:divide-x divide-slate-100">
@@ -298,15 +427,21 @@ export default function Home() {
                 </div>
                 <div>
                   <h4 className="font-bold text-slate-900 text-base">Fatima Sy</h4>
-                  <p className="text-xs text-slate-500">Client Check-In</p>
+                  <p className="text-xs text-slate-500">
+                    {eventType === "paid" ? "45 min Paid Strategy Call" : "15 min Free Consultation"}
+                  </p>
                 </div>
               </div>
-              <div className="space-y-2 text-xs text-slate-600 font-medium">
-                <div className="flex items-center gap-2">🕒 30 min</div>
-                <div className="flex items-center gap-2">📹 Zoom Video Call</div>
+
+              <div className="space-y-2 text-xs text-slate-600 font-medium bg-slate-50 p-3 rounded-lg border border-slate-100">
+                <div className="flex items-center gap-2">🕒 Duration: {eventType === "paid" ? "45 mins" : "15 mins"}</div>
+                <div className="flex items-center gap-2">📹 Zoom / Google Meet Link</div>
+                <div className="flex items-center gap-2 font-bold text-slate-900">
+                  💳 Price: {eventType === "paid" ? "$150 USD via Stripe" : "Free ($0 USD)"}
+                </div>
               </div>
 
-              <div className="pt-4 space-y-2">
+              <div className="pt-2 space-y-2">
                 <label className="block text-[11px] font-bold text-slate-500 uppercase">Your Name</label>
                 <input
                   type="text"
@@ -373,11 +508,11 @@ export default function Home() {
                       </button>
                       {selectedSlot === s.start_time_utc && (
                         <button
-                          onClick={handleBooking}
+                          onClick={handleBookingInitiate}
                           disabled={bookingLoading}
                           className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-4 rounded-lg shadow-sm"
                         >
-                          {bookingLoading ? "..." : "Confirm"}
+                          {eventType === "paid" ? "Pay $150" : "Confirm"}
                         </button>
                       )}
                     </div>
@@ -387,274 +522,17 @@ export default function Home() {
 
               {booked && (
                 <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-lg font-medium text-center">
-                  ✓ Booking Confirmed in FastAPI Database!
+                  ✓ {eventType === "paid" ? "$150 Paid & Booking Confirmed!" : "Booking Confirmed in FastAPI Database!"}
                 </div>
               )}
             </div>
           </div>
         </div>
-      </section>
-
-      {/* Trust Banner Logos */}
-      <section className="py-12 bg-slate-50 border-y border-slate-100 text-center">
-        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-6">
-          Trusted by more than <span className="text-slate-900">100,000</span> of the world&apos;s leading organizations
-        </p>
-        <div className="max-w-6xl mx-auto px-6 flex flex-wrap justify-center items-center gap-8 sm:gap-16 opacity-60 font-extrabold text-lg text-slate-700">
-          <span>Dropbox</span>
-          <span>GONG</span>
-          <span>CARNIVAL</span>
-          <span>INDIANA UNIVERSITY</span>
-          <span>DOORDASH</span>
-        </div>
-      </section>
-
-      {/* BookFlow Core Features Showcase with Unsplash UI Visuals */}
-      <section className="py-20 px-6 max-w-5xl mx-auto text-center">
-        <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 mb-4">
-          BookFlow makes scheduling simple
-        </h2>
-        <p className="text-slate-600 max-w-2xl mx-auto mb-12 text-sm sm:text-base">
-          BookFlow&apos;s easy enough for individual users, and powerful enough to meet the needs of enterprise organizations.
-        </p>
-
-        {/* Feature Tabs Selector */}
-        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 sm:p-8 text-left shadow-sm mb-16">
-          <div className="flex flex-wrap border-b border-slate-200 gap-4 sm:gap-8 text-xs sm:text-sm font-bold text-slate-500 mb-8 pb-2">
-            <button
-              onClick={() => setActiveFeature("calendar")}
-              className={`pb-2 border-b-2 transition-all ${
-                activeFeature === "calendar" ? "border-blue-600 text-blue-600" : "border-transparent"
-              }`}
-            >
-              📅 Connect your calendars
-            </button>
-            <button
-              onClick={() => setActiveFeature("availability")}
-              className={`pb-2 border-b-2 transition-all ${
-                activeFeature === "availability" ? "border-blue-600 text-blue-600" : "border-transparent"
-              }`}
-            >
-              ⏰ Add your availability
-            </button>
-            <button
-              onClick={() => setActiveFeature("conferencing")}
-              className={`pb-2 border-b-2 transition-all ${
-                activeFeature === "conferencing" ? "border-blue-600 text-blue-600" : "border-transparent"
-              }`}
-            >
-              📹 Connect conferencing tools
-            </button>
-          </div>
-
-          {activeFeature === "calendar" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-              <div>
-                <h3 className="text-xl font-bold text-slate-900 mb-2">Connect up to six calendars</h3>
-                <p className="text-xs sm:text-sm text-slate-600 mb-6">
-                  BookFlow syncs in real time with Google Calendar, Microsoft Outlook, and Exchange to prevent double-booking automatically.
-                </p>
-                <button onClick={handleGoogleAuth} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-5 py-2.5 rounded-lg shadow-sm">
-                  Connect Calendars Now
-                </button>
-              </div>
-              <div className="rounded-xl overflow-hidden shadow-md border border-slate-200">
-                <img
-                  src="https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=800&q=80"
-                  alt="Calendar Sync Visual"
-                  className="w-full h-48 object-cover"
-                />
-              </div>
-            </div>
-          )}
-
-          {activeFeature === "availability" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-              <div>
-                <h3 className="text-xl font-bold text-slate-900 mb-2">Custom Timezone Availability</h3>
-                <p className="text-xs sm:text-sm text-slate-600 mb-6">
-                  Set custom working hours, EST/PST US timezones, buffer times between meetings, and daily meeting limits.
-                </p>
-              </div>
-              <div className="rounded-xl overflow-hidden shadow-md border border-slate-200">
-                <img
-                  src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=800&q=80"
-                  alt="Availability Visual"
-                  className="w-full h-48 object-cover"
-                />
-              </div>
-            </div>
-          )}
-
-          {activeFeature === "conferencing" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-              <div>
-                <h3 className="text-xl font-bold text-slate-900 mb-2">Auto-Generate Video Links</h3>
-                <p className="text-xs sm:text-sm text-slate-600 mb-6">
-                  Automatically create unique Zoom, Google Meet, or Microsoft Teams call links when a booking is confirmed.
-                </p>
-              </div>
-              <div className="rounded-xl overflow-hidden shadow-md border border-slate-200">
-                <img
-                  src="https://images.unsplash.com/photo-1588196749597-9ff075ee6b5b?auto=format&fit=crop&w=800&q=80"
-                  alt="Video Conference Visual"
-                  className="w-full h-48 object-cover"
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* More Than a Scheduling Link Section */}
-        <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-4">
-          More than a scheduling link
-        </h2>
-        <p className="text-slate-600 max-w-xl mx-auto mb-10 text-xs sm:text-sm">
-          BookFlow&apos;s functionality goes way beyond just a scheduling link, with customizable automated features.
-        </p>
-
-        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 sm:p-8 text-left shadow-sm">
-          <div className="flex flex-wrap border-b border-slate-200 gap-4 sm:gap-8 text-xs sm:text-sm font-bold text-slate-500 mb-8 pb-2">
-            <button
-              onClick={() => setActiveMoreFeature("workflows")}
-              className={`pb-2 border-b-2 transition-all ${
-                activeMoreFeature === "workflows" ? "border-blue-600 text-blue-600" : "border-transparent"
-              }`}
-            >
-              ⚡ Automated Workflows
-            </button>
-            <button
-              onClick={() => setActiveMoreFeature("routing")}
-              className={`pb-2 border-b-2 transition-all ${
-                activeMoreFeature === "routing" ? "border-blue-600 text-blue-600" : "border-transparent"
-              }`}
-            >
-              🔀 Routing Forms
-            </button>
-            <button
-              onClick={() => setActiveMoreFeature("extensions")}
-              className={`pb-2 border-b-2 transition-all ${
-                activeMoreFeature === "extensions" ? "border-blue-600 text-blue-600" : "border-transparent"
-              }`}
-            >
-              🧩 Browser Extensions
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-            <div>
-              {activeMoreFeature === "workflows" && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-slate-900 text-base">Automated SMS & Email Reminders</h4>
-                  <p className="text-xs text-slate-600">
-                    Reduce no-shows by automatically sending email confirmations, SMS reminders, and follow-up thank you notes.
-                  </p>
-                </div>
-              )}
-
-              {activeMoreFeature === "routing" && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-slate-900 text-base">Smart Round Robin & Team Routing</h4>
-                  <p className="text-xs text-slate-600">
-                    Route leads to the right team member based on availability, territory, or specialized expertise.
-                  </p>
-                </div>
-              )}
-
-              {activeMoreFeature === "extensions" && (
-                <div className="space-y-3">
-                  <h4 className="font-bold text-slate-900 text-base">Chrome, Edge & Gmail Extensions</h4>
-                  <p className="text-xs text-slate-600">
-                    Embed your availability directly into Gmail emails, LinkedIn messages, or CRM records in one click.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-xl overflow-hidden shadow-md border border-slate-200">
-              <img
-                src="https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&w=800&q=80"
-                alt="Automated Workflows Visual"
-                className="w-full h-44 object-cover"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Security Section */}
-      <section className="py-16 bg-slate-50 border-t border-slate-200 text-center">
-        <h2 className="text-3xl font-extrabold text-slate-900 mb-6">
-          Built to keep your organization secure
-        </h2>
-        <div className="flex flex-wrap justify-center gap-6 max-w-4xl mx-auto mb-6">
-          <div className="bg-white border border-slate-200 px-6 py-4 rounded-xl shadow-sm text-xs font-extrabold text-blue-800">
-            AICPA SOC 2
-          </div>
-          <div className="bg-white border border-slate-200 px-6 py-4 rounded-xl shadow-sm text-xs font-extrabold text-emerald-800">
-            PCI-DSS
-          </div>
-          <div className="bg-white border border-slate-200 px-6 py-4 rounded-xl shadow-sm text-xs font-extrabold text-indigo-800">
-            GDPR COMPLIANT
-          </div>
-          <div className="bg-white border border-slate-200 px-6 py-4 rounded-xl shadow-sm text-xs font-extrabold text-rose-800">
-            HIPAA READY
-          </div>
-        </div>
-        <p className="text-xs text-slate-500 max-w-xl mx-auto">
-          Keep your scheduling data secure with enterprise-grade admin management, security integrations, and privacy protections.
-        </p>
       </section>
 
       {/* Footer */}
-      <footer className="bg-white border-t border-slate-200 py-12 px-6">
-        <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-xs text-slate-600 mb-12">
-          <div>
-            <h5 className="font-bold text-slate-900 mb-3 uppercase tracking-wider">Product</h5>
-            <ul className="space-y-2">
-              <li>Scheduling automation</li>
-              <li>Meeting Notetaker</li>
-              <li>Payments & Stripe</li>
-              <li>Customizable availability</li>
-            </ul>
-          </div>
-          <div>
-            <h5 className="font-bold text-slate-900 mb-3 uppercase tracking-wider">Integrations</h5>
-            <ul className="space-y-2">
-              <li>Google ecosystem</li>
-              <li>Microsoft ecosystem</li>
-              <li>Zoom & Teams</li>
-              <li>Salesforce & HubSpot</li>
-            </ul>
-          </div>
-          <div>
-            <h5 className="font-bold text-slate-900 mb-3 uppercase tracking-wider">Solutions</h5>
-            <ul className="space-y-2">
-              <li>For Individuals</li>
-              <li>For Small Businesses</li>
-              <li>For Enterprise</li>
-              <li>Security & Compliance</li>
-            </ul>
-          </div>
-          <div>
-            <h5 className="font-bold text-slate-900 mb-3 uppercase tracking-wider">Company</h5>
-            <ul className="space-y-2">
-              <li>About Us</li>
-              <li>Careers</li>
-              <li>Leadership</li>
-              <li>Privacy Policy</li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="max-w-7xl mx-auto pt-6 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-400 gap-4">
-          <div>© Copyright BookFlow AI 2026. All rights reserved.</div>
-          <div className="flex gap-4">
-            <span>Privacy Policy</span>
-            <span>Legal</span>
-            <span>Cookie Settings</span>
-          </div>
-        </div>
+      <footer className="bg-white border-t border-slate-200 py-8 px-6 text-center text-xs text-slate-400">
+        © Copyright BookFlow AI 2026. All rights reserved.
       </footer>
     </div>
   );
