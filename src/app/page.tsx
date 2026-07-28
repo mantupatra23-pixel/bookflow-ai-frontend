@@ -195,7 +195,7 @@ export default function Home() {
     } catch (err) {
       setBooked(true);
       setShowStripeModal(false);
-    } fontally {
+    } finally {
       setBookingLoading(false);
     }
   };
