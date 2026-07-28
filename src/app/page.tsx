@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { auth, googleProvider } from "../lib/firebase";
 import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 
@@ -13,7 +14,7 @@ export default function Home() {
   const [booked, setBooked] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
 
-  // Appointment Type Selection
+  // Appointment Service Selection
   const [selectedService, setSelectedService] = useState("consultation");
   
   // Paid Meeting & Stripe States
@@ -22,11 +23,14 @@ export default function Home() {
   const [cardExpiry, setCardExpiry] = useState("");
   const [cardCvc, setCardCvc] = useState("");
 
+  // AI Assistant Chatbot State
+  const [showAiChat, setShowAiChat] = useState(false);
+  const [chatMessages, setChatMessages] = useState([
+    { sender: "ai", text: "Hi! I'm BookFlow AI Assistant. Need help picking a time or rescheduling an existing meeting?" }
+  ]);
+  const [chatInput, setChatInput] = useState("");
+
   // Auth States
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
-  const [authEmail, setAuthEmail] = useState("");
-  const [authPassword, setAuthPassword] = useState("");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
 
@@ -63,7 +67,6 @@ export default function Home() {
         photo: result.user.photoURL
       });
       setIsLoggedIn(true);
-      setShowAuthModal(false);
     } catch (error) {
       console.error("Firebase auth error:", error);
     }
@@ -110,9 +113,93 @@ export default function Home() {
     }
   };
 
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+
+    const userText = chatInput;
+    setChatMessages((prev) => [...prev, { sender: "user", text: userText }]);
+    setChatInput("");
+
+    setTimeout(() => {
+      let aiReply = "I can automatically help you book or reschedule. Please select an available slot above!";
+      if (userText.toLowerCase().includes("reschedule") || userText.toLowerCase().includes("change")) {
+        aiReply = "Sure! I can help you reschedule your meeting. Choose a new slot from the calendar and I will sync it with your Google Calendar.";
+      } else if (userText.toLowerCase().includes("price") || userText.toLowerCase().includes("cost")) {
+        aiReply = "Consultations and Training Calls are 100% Free ($0). Paid Strategy Sessions are $150 USD.";
+      }
+      setChatMessages((prev) => [...prev, { sender: "ai", text: aiReply }]);
+    }, 600);
+  };
+
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans antialiased selection:bg-blue-100 selection:text-blue-700">
+    <div className="min-h-screen bg-white text-slate-900 font-sans antialiased selection:bg-blue-100 selection:text-blue-700 relative">
       
+      {/* Floating AI Assistant Chatbot Button */}
+      <div className="fixed bottom-6 right-6 z-50">
+        {!showAiChat ? (
+          <button
+            onClick={() => setShowAiChat(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold p-4 rounded-full shadow-2xl flex items-center gap-2 transition-all transform hover:scale-105"
+          >
+            <span className="text-xl">🤖</span>
+            <span className="text-xs pr-1">Ask AI Scheduler</span>
+          </button>
+        ) : (
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-80 sm:w-96 overflow-hidden flex flex-col h-[420px]">
+            {/* Chat Header */}
+            <div className="bg-blue-600 text-white p-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🤖</span>
+                <div>
+                  <h4 className="font-bold text-xs">BookFlow AI Assistant</h4>
+                  <span className="text-[10px] text-blue-100 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Online
+                  </span>
+                </div>
+              </div>
+              <button onClick={() => setShowAiChat(false)} className="text-white hover:text-slate-200 font-bold">
+                ✕
+              </button>
+            </div>
+
+            {/* Chat Body */}
+            <div className="flex-1 p-3 overflow-y-auto space-y-3 bg-slate-50 text-xs">
+              {chatMessages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={`max-w-[80%] p-2.5 rounded-xl ${
+                      msg.sender === "user"
+                        ? "bg-blue-600 text-white rounded-br-none"
+                        : "bg-white border border-slate-200 text-slate-800 shadow-sm rounded-bl-none"
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Chat Input */}
+            <form onSubmit={handleSendMessage} className="p-2 bg-white border-t border-slate-200 flex gap-2">
+              <input
+                type="text"
+                placeholder="Ask to reschedule or pricing..."
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                className="flex-1 text-xs border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:border-blue-600"
+              />
+              <button type="submit" className="bg-blue-600 text-white px-3 py-2 rounded-lg font-bold text-xs">
+                Send
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
+
       {/* Stripe Payment Modal */}
       {showStripeModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
@@ -201,6 +288,9 @@ export default function Home() {
         </div>
         
         <div className="flex items-center gap-4">
+          <Link href="/dashboard" className="text-xs font-bold text-slate-700 hover:text-blue-600 border border-slate-200 px-3 py-1.5 rounded-lg">
+            📊 View Dashboard
+          </Link>
           {isLoggedIn ? (
             <div className="flex items-center gap-3">
               <span className="text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 px-3 py-1.5 rounded-full flex items-center gap-2">
@@ -225,7 +315,7 @@ export default function Home() {
           AI Scheduling Built For Modern Teams
         </h1>
         <p className="text-lg text-slate-600 max-w-2xl mx-auto mb-8 font-normal">
-          The #1 Calendly Alternative with Unlimited Calendar Sync, Buffer Padding Times, and Automated Stripe Payments.
+          The #1 Calendly Alternative with AI Rescheduling Assistant, Unlimited Calendar Sync, and Automated Stripe Payments.
         </p>
       </section>
 
@@ -392,57 +482,6 @@ export default function Home() {
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* BookFlow AI vs Calendly Comparison Table */}
-      <section className="py-20 bg-slate-50 border-t border-slate-200 px-6">
-        <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl font-extrabold text-slate-900 text-center mb-4">
-            Why Teams Are Switching From Calendly to BookFlow AI
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-500 text-center max-w-xl mx-auto mb-12">
-            Get complete custom control, unlimited calendar connections, and built-in AI tools at a fraction of the cost.
-          </p>
-
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
-            <table className="w-full text-left text-xs sm:text-sm">
-              <thead className="bg-slate-900 text-white uppercase text-[11px] font-bold">
-                <tr>
-                  <th className="p-4">Features & Attributes</th>
-                  <th className="p-4 bg-blue-600 text-white">BookFlow AI</th>
-                  <th className="p-4">Calendly</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 font-medium">
-                <tr>
-                  <td className="p-4 font-bold text-slate-900">Customizing Colors & Branding</td>
-                  <td className="p-4 text-emerald-600 font-bold bg-blue-50/50">✓ Free & Unlimited Customization</td>
-                  <td className="p-4 text-slate-500">$144/year for basic customization</td>
-                </tr>
-                <tr>
-                  <td className="p-4 font-bold text-slate-900">Booking Form Experience</td>
-                  <td className="p-4 text-emerald-600 font-bold bg-blue-50/50">✓ Single-Step Auto-Detect Form</td>
-                  <td className="p-4 text-slate-500">Clunky multi-step process</td>
-                </tr>
-                <tr>
-                  <td className="p-4 font-bold text-slate-900">Team Member Booking</td>
-                  <td className="p-4 text-emerald-600 font-bold bg-blue-50/50">✓ Unlimited Team Members Included</td>
-                  <td className="p-4 text-slate-500">$16 / user / month</td>
-                </tr>
-                <tr>
-                  <td className="p-4 font-bold text-slate-900">Calendar Connections</td>
-                  <td className="p-4 text-emerald-600 font-bold bg-blue-50/50">✓ Unlimited Connections</td>
-                  <td className="p-4 text-slate-500">Max 6 (extra charges afterwards)</td>
-                </tr>
-                <tr>
-                  <td className="p-4 font-bold text-slate-900">Tracking & Analytics</td>
-                  <td className="p-4 text-emerald-600 font-bold bg-blue-50/50">✓ Google Analytics, FB Pixel & Segment</td>
-                  <td className="p-4 text-slate-500">Google Analytics only</td>
-                </tr>
-              </tbody>
-            </table>
           </div>
         </div>
       </section>
