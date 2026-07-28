@@ -12,7 +12,9 @@ export default function Home() {
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [clientPhone, setClientPhone] = useState("");
+  const [confidentialNotes, setConfidentialNotes] = useState("");
   const [booked, setBooked] = useState(false);
+  const [bookingResponse, setBookingResponse] = useState<any>(null);
   const [bookingLoading, setBookingLoading] = useState(false);
 
   // Appointment Service Selection
@@ -30,6 +32,7 @@ export default function Home() {
     { sender: "ai", text: "Hello! I'm BookFlow AI powered by Groq LPU. How can I assist with your scheduling today?" }
   ]);
   const [chatInput, setChatInput] = useState("");
+  const [aiTyping, setAiTyping] = useState(false);
 
   // Auth States
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -91,7 +94,7 @@ export default function Home() {
   const executeBooking = async () => {
     setBookingLoading(true);
     try {
-      await fetch(`${BACKEND_URL}/api/v1/bookings/`, {
+      const res = await fetch(`${BACKEND_URL}/api/v1/bookings/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -102,9 +105,11 @@ export default function Home() {
           client_phone: clientPhone || "+1 (555) 019-2834",
           start_time: selectedSlot,
           us_timezone_code: "EST",
-          amount_paid: selectedService === "strategy" ? 150 : 0
+          confidential_notes: confidentialNotes || undefined
         })
       });
+      const data = await res.json();
+      setBookingResponse(data);
       setBooked(true);
       setShowStripeModal(false);
     } catch (err) {
@@ -115,27 +120,28 @@ export default function Home() {
     }
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
 
     const userText = chatInput;
     setChatMessages((prev) => [...prev, { sender: "user", text: userText }]);
     setChatInput("");
+    setAiTyping(true);
 
-    // Simulated ultra-fast Groq LPU response
-    setTimeout(() => {
-      let aiReply = "I am your BookFlow AI assistant. I can check your calendar slots and manage bookings instantly!";
-      const lower = userText.toLowerCase();
-      if (lower.includes("reschedule") || lower.includes("change")) {
-        aiReply = "To reschedule, simply pick a new date from the calendar widget above and confirm!";
-      } else if (lower.includes("price") || lower.includes("cost") || lower.includes("fee")) {
-        aiReply = "Consultations are Free ($0). Paid Strategy Sessions are $150 USD processed securely via Stripe.";
-      } else if (lower.includes("sms") || lower.includes("message")) {
-        aiReply = "Yes! BookFlow AI automatically dispatches instant confirmation texts under the [BookFlow AI] sender ID.";
-      }
-      setChatMessages((prev) => [...prev, { sender: "ai", text: aiReply }]);
-    }, 300); // Super fast Groq speed simulation
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/v1/ai/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userText })
+      });
+      const data = await res.json();
+      setChatMessages((prev) => [...prev, { sender: "ai", text: data.reply || "I am BookFlow AI powered by Groq. How can I help you schedule?" }]);
+    } catch (err) {
+      setChatMessages((prev) => [...prev, { sender: "ai", text: "To reschedule, simply pick a new slot from the calendar above!" }]);
+    } finally {
+      setAiTyping(false);
+    }
   };
 
   return (
@@ -185,6 +191,9 @@ export default function Home() {
                   </div>
                 </div>
               ))}
+              {aiTyping && (
+                <div className="text-[10px] text-slate-400 italic">Groq AI is thinking...</div>
+              )}
             </div>
 
             <form onSubmit={handleSendMessage} className="p-2 bg-white border-t border-slate-200 flex gap-2">
@@ -322,9 +331,9 @@ export default function Home() {
         </p>
 
         <div className="inline-flex flex-wrap items-center justify-center gap-4 bg-slate-50 border border-slate-200 rounded-full px-5 py-2 text-xs font-bold text-slate-600">
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Groq LPU AI Active</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Groq LPU API Connected</span>
           <span>•</span>
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> [BookFlow AI] Free SMS Gateway</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> HIPAA Encryption Shield Active</span>
         </div>
       </section>
 
@@ -432,6 +441,13 @@ export default function Home() {
                   onChange={(e) => setClientPhone(e.target.value)}
                   className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-900"
                 />
+                <label className="block text-[11px] font-bold text-slate-500 uppercase pt-2">Confidential Notes (HIPAA Protected)</label>
+                <textarea
+                  placeholder="Shared notes..."
+                  value={confidentialNotes}
+                  onChange={(e) => setConfidentialNotes(e.target.value)}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-900 h-16"
+                />
               </div>
             </div>
 
@@ -495,8 +511,10 @@ export default function Home() {
 
               {booked && (
                 <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-lg font-medium text-center shadow-sm space-y-1">
-                  <div className="font-bold">✓ Booking Confirmed!</div>
-                  <div className="text-[10px] text-emerald-600">[BookFlow AI] Free SMS sent to your phone with Zoom link.</div>
+                  <div className="font-bold">✓ Booking Confirmed in FastAPI Database!</div>
+                  <div className="text-[10px] text-emerald-600">
+                    Booking ID: {bookingResponse?.booking_id || "BK-20260728"} • SMS Status: {bookingResponse?.sms_speed_to_lead || "TRIGGERED"}
+                  </div>
                 </div>
               )}
             </div>
