@@ -1,869 +1,989 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import { auth, googleProvider } from "../lib/firebase";
-import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  LayoutDashboard,
+  Calendar as CalendarIcon,
+  Clock,
+  FileText,
+  Users,
+  CreditCard,
+  Bot,
+  MessageSquare,
+  Sliders,
+  UserPlus,
+  BarChart3,
+  Layers,
+  Code2,
+  Receipt,
+  ShieldCheck,
+  Settings,
+  Search,
+  Bell,
+  Sparkles,
+  ChevronDown,
+  Plus,
+  ArrowUpRight,
+  ArrowDownRight,
+  CheckCircle2,
+  XCircle,
+  Copy,
+  ExternalLink,
+  Send,
+  Zap,
+  Globe,
+  Lock,
+  Menu,
+  X,
+  Mic,
+  Filter,
+  Download,
+  Share2,
+  Trash2,
+  Edit,
+  QrCode
+} from "lucide-react";
 
-export default function Home() {
-  const [slots, setSlots] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const [clientName, setClientName] = useState("");
-  const [clientEmail, setClientEmail] = useState("");
-  const [clientPhone, setClientPhone] = useState("");
-  const [confidentialNotes, setConfidentialNotes] = useState("");
-  const [booked, setBooked] = useState(false);
-  const [bookingResponse, setBookingResponse] = useState<any>(null);
-  const [bookingLoading, setBookingLoading] = useState(false);
-
-  // Pricing State
-  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("annual");
-
-  // Appointment Service Selection
-  const [selectedService, setSelectedService] = useState("consultation");
-  
-  // Industry Solutions Tabs
-  const [activeNiche, setActiveNiche] = useState("coaches");
-
-  // FAQ Accordion State
-  const [openFaq, setOpenFaq] = useState<number | null>(0);
-
-  // Paid Meeting & Stripe States
-  const [showStripeModal, setShowStripeModal] = useState(false);
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCvc, setCardCvc] = useState("");
-
-  // Groq AI Assistant Chatbot State
-  const [showAiChat, setShowAiChat] = useState(false);
-  const [chatMessages, setChatMessages] = useState([
-    { sender: "ai", text: "Hello! I'm BookFlow AI powered by Groq LPU. How can I help you scale your booking workflow today?" }
+export default function BookFlowDashboard() {
+  const [activeTab, setActiveTab] = useState("Dashboard");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showAiFloating, setShowAiFloating] = useState(false);
+  const [aiChatMessages, setAiChatMessages] = useState([
+    { role: "assistant", content: "Hello Mantu! I analyzed your schedule. You have 8 appointments today with a 98% predicted attendance rate. Would you like me to optimize your buffer times?" }
   ]);
   const [chatInput, setChatInput] = useState("");
-  const [aiTyping, setAiTyping] = useState(false);
 
-  // Auth States
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userProfile, setUserProfile] = useState<any>(null);
-
-  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "https://bookflow-ai-backend.onrender.com";
-
-  useEffect(() => {
-    fetch(`${BACKEND_URL}/api/v1/slots?zone=EST`)
-      .then((res) => res.json())
-      .then((data) => {
-        setSlots(data.slots || []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setIsLoggedIn(true);
-        setUserProfile({ email: user.email, name: user.displayName, photo: user.photoURL });
-      } else {
-        setIsLoggedIn(false);
-        setUserProfile(null);
-      }
-    });
-
-    return () => unsubscribe();
-  }, [BACKEND_URL]);
-
-  const handleGoogleAuth = async () => {
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      setUserProfile({
-        email: result.user.email,
-        name: result.user.displayName,
-        photo: result.user.photoURL
-      });
-      setIsLoggedIn(true);
-    } catch (error) {
-      console.error("Firebase auth error:", error);
-    }
-  };
-
-  const handleLogout = async () => {
-    await signOut(auth);
-    setIsLoggedIn(false);
-    setUserProfile(null);
-  };
-
-  const handleBookingInitiate = () => {
-    if (!selectedSlot) return;
-    if (selectedService === "strategy") {
-      setShowStripeModal(true);
-    } else {
-      executeBooking();
-    }
-  };
-
-  const executeBooking = async () => {
-    setBookingLoading(true);
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/v1/bookings/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: "demo-user-id",
-          event_type_id: selectedService,
-          client_name: clientName || "BookFlow Guest",
-          client_email: clientEmail || "guest@bookflow.ai",
-          client_phone: clientPhone || "+1 (555) 019-2834",
-          start_time: selectedSlot,
-          us_timezone_code: "EST",
-          confidential_notes: confidentialNotes || undefined
-        })
-      });
-      const data = await res.json();
-      setBookingResponse(data);
-      setBooked(true);
-      setShowStripeModal(false);
-    } catch (err) {
-      setBooked(true);
-      setShowStripeModal(false);
-    } finally {
-      setBookingLoading(false);
-    }
-  };
-
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
-
-    const userText = chatInput;
-    setChatMessages((prev) => [...prev, { sender: "user", text: userText }]);
-    setChatInput("");
-    setAiTyping(true);
-
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/v1/ai/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userText })
-      });
-      const data = await res.json();
-      setChatMessages((prev) => [...prev, { sender: "ai", text: data.reply || "I am BookFlow AI. How can I help you schedule?" }]);
-    } catch (err) {
-      setChatMessages((prev) => [...prev, { sender: "ai", text: "To reschedule, simply pick a new slot from the calendar widget below." }]);
-    } finally {
-      setAiTyping(false);
-    }
-  };
-
-  const faqs = [
-    {
-      q: "How does BookFlow AI eliminate no-shows?",
-      a: "BookFlow AI uses automated speed-to-lead SMS and email workflows under your branded sender ID. Reminders are sent 24h and 1h prior with 1-click rescheduling options."
-    },
-    {
-      q: "Is BookFlow AI HIPAA compliant for healthcare?",
-      a: "Yes! Confidential client and patient intake notes are protected using end-to-end 256-bit AES HIPAA encryption shields."
-    },
-    {
-      q: "Can I collect payments directly before booking?",
-      a: "Absolutely. Integrated Stripe escrow checkout allows you to set custom prices ($150 strategy sessions) or take deposit holds before a meeting slot is reserved."
-    },
-    {
-      q: "How does it compare to Calendly?",
-      a: "Calendly charges per user and restricts calendar syncs. BookFlow AI gives you unlimited calendar syncs, free SMS reminders, and Groq LPU AI rescheduling at a fraction of the cost."
-    }
+  const navigationItems = [
+    { name: "Dashboard", icon: LayoutDashboard },
+    { name: "Calendar", icon: CalendarIcon },
+    { name: "Appointments", icon: Clock },
+    { name: "Booking Pages", icon: FileText },
+    { name: "Customers", icon: Users },
+    { name: "Payments", icon: CreditCard },
+    { name: "AI Assistant", icon: Bot },
+    { name: "SMS & Email", icon: MessageSquare },
+    { name: "Availability", icon: Sliders },
+    { name: "Team", icon: UserPlus },
+    { name: "Analytics", icon: BarChart3 },
+    { name: "Integrations", icon: Layers },
+    { name: "API & Webhooks", icon: Code2 },
+    { name: "Billing", icon: Receipt },
+    { name: "Security", icon: ShieldCheck },
+    { name: "Settings", icon: Settings },
   ];
 
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+    setAiChatMessages(prev => [...prev, { role: "user", content: chatInput }]);
+    const userMsg = chatInput;
+    setChatInput("");
+    
+    setTimeout(() => {
+      let reply = "I am processing your request using Groq LPU engine. Your availability has been dynamically updated across all calendars.";
+      if (userMsg.toLowerCase().includes("reschedule")) {
+        reply = "I've analyzed Dr. Sarah's availability. I can move the 3:00 PM session to tomorrow at 10:00 AM EST. Shall I dispatch the SMS confirmation?";
+      } else if (userMsg.toLowerCase().includes("revenue")) {
+        reply = "Your projected revenue for July 2026 is $14,250 USD, up 24% compared to June.";
+      }
+      setAiChatMessages(prev => [...prev, { role: "assistant", content: reply }]);
+    }, 600);
+  };
+
   return (
-    <div className="min-h-screen bg-[#06080d] text-slate-100 font-sans antialiased selection:bg-blue-600 selection:text-white relative overflow-x-hidden">
+    <div className="flex h-screen bg-[#050816] text-slate-100 overflow-hidden font-sans">
       
-      {/* Background Grid Pattern */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#1f293715_1px,transparent_1px),linear-gradient(to_bottom,#1f293715_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none" />
-
-      {/* Floating Gradient Ambient Light */}
-      <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-gradient-to-tr from-blue-600/30 via-indigo-600/20 to-purple-600/10 blur-[120px] rounded-full pointer-events-none -z-10" />
-
-      {/* Floating Groq AI Assistant Chatbot Button */}
-      <div className="fixed bottom-6 right-6 z-50">
-        {!showAiChat ? (
-          <button
-            onClick={() => setShowAiChat(true)}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold p-4 rounded-full shadow-2xl flex items-center gap-2.5 transition-all transform hover:scale-105 border border-blue-400/30 backdrop-blur-md"
-          >
-            <span className="text-xl">⚡</span>
-            <span className="text-xs pr-1 font-extrabold tracking-wide">Groq AI Assistant</span>
-          </button>
-        ) : (
-          <div className="bg-slate-900/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-800 w-80 sm:w-96 overflow-hidden flex flex-col h-[440px]">
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">⚡</span>
-                <div>
-                  <h4 className="font-bold text-xs tracking-tight">BookFlow AI (Groq Engine)</h4>
-                  <span className="text-[10px] text-blue-100 flex items-center gap-1 font-medium">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Sub-second Latency
-                  </span>
-                </div>
-              </div>
-              <button onClick={() => setShowAiChat(false)} className="text-white hover:text-slate-200 font-bold">
-                ✕
-              </button>
-            </div>
-
-            <div className="flex-1 p-3.5 overflow-y-auto space-y-3 bg-slate-950/80 text-xs">
-              {chatMessages.map((msg, idx) => (
-                <div
-                  key={idx}
-                  className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
-                >
-                  <div
-                    className={`max-w-[85%] p-3 rounded-2xl leading-relaxed ${
-                      msg.sender === "user"
-                        ? "bg-blue-600 text-white rounded-br-none font-medium shadow-md shadow-blue-600/20"
-                        : "bg-slate-900 border border-slate-800 text-slate-200 shadow-sm rounded-bl-none"
-                    }`}
-                  >
-                    {msg.text}
-                  </div>
-                </div>
-              ))}
-              {aiTyping && (
-                <div className="text-[10px] text-slate-500 italic flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping"></span> Groq LPU is generating...
-                </div>
-              )}
-            </div>
-
-            <form onSubmit={handleSendMessage} className="p-2.5 bg-slate-900 border-t border-slate-800 flex gap-2">
-              <input
-                type="text"
-                placeholder="Ask Groq AI anything..."
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                className="flex-1 text-xs border border-slate-800 bg-slate-950 rounded-xl px-3.5 py-2.5 text-slate-100 focus:outline-none focus:border-blue-500 transition-all"
-              />
-              <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl font-bold text-xs transition-all">
-                Send
-              </button>
-            </form>
-          </div>
-        )}
-      </div>
-
-      {/* Stripe Payment Modal */}
-      {showStripeModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900/90 rounded-2xl shadow-2xl border border-slate-800 max-w-md w-full p-6 relative text-slate-100 backdrop-blur-xl">
-            <button
-              onClick={() => setShowStripeModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-200 font-bold text-lg"
-            >
-              ✕
-            </button>
-
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-[11px] font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full uppercase tracking-wider">
-                Stripe Escrow Checkout
-              </span>
-            </div>
-
-            <h3 className="text-2xl font-extrabold text-white mb-1">
-              Complete $150 Payment
-            </h3>
-            <p className="text-xs text-slate-400 mb-6">
-              1-on-1 Paid Strategy Session (45 min) via Zoom/Google Meet.
-            </p>
-
-            <form onSubmit={(e) => { e.preventDefault(); executeBooking(); }} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
-                  Card Number
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="4242 •••• •••• 4242"
-                  value={cardNumber}
-                  onChange={(e) => setCardNumber(e.target.value)}
-                  className="w-full border border-slate-800 bg-slate-950 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
-                    Expires (MM/YY)
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="12/28"
-                    value={cardExpiry}
-                    onChange={(e) => setCardExpiry(e.target.value)}
-                    className="w-full border border-slate-800 bg-slate-950 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
-                    CVC
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="123"
-                    value={cardCvc}
-                    onChange={(e) => setCardCvc(e.target.value)}
-                    className="w-full border border-slate-800 bg-slate-950 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={bookingLoading}
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-3.5 rounded-xl text-sm transition-all shadow-lg shadow-blue-600/25 mt-4"
-              >
-                {bookingLoading ? "Processing Payment..." : "🔒 Pay $150 & Confirm Booking"}
-              </button>
-            </form>
-          </div>
-        </div>
+      {/* MOBILE SIDEBAR BACKDROP */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
       )}
 
-      {/* Header Navigation */}
-      <header className="sticky top-0 z-40 bg-slate-950/70 backdrop-blur-xl border-b border-slate-800/80 px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-extrabold text-white text-lg shadow-lg shadow-blue-600/30">B</div>
-          <span className="text-2xl font-extrabold text-white tracking-tight">BookFlow <span className="text-blue-500">AI</span></span>
-        </div>
-        
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard" className="text-xs font-bold text-slate-300 hover:text-white border border-slate-800 bg-slate-900/80 hover:bg-slate-900 px-4 py-2 rounded-xl transition-all">
-            📊 App Dashboard
-          </Link>
-          {isLoggedIn ? (
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3.5 py-1.5 rounded-full flex items-center gap-2">
-                {userProfile?.photo && <img src={userProfile.photo} className="w-4 h-4 rounded-full" alt="avatar" />}
-                👤 {userProfile?.name || userProfile?.email}
-              </span>
-              <button onClick={handleLogout} className="text-xs font-semibold text-rose-400 hover:underline">
-                Log Out
-              </button>
+      {/* LEFT SIDEBAR */}
+      <aside className={`
+        fixed lg:static inset-y-0 left-0 z-50 w-64 bg-[#090d20]/90 backdrop-blur-xl border-r border-slate-800/60
+        flex flex-col transition-transform duration-300 ease-in-out
+        ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+      `}>
+        {/* BRAND HEADER */}
+        <div className="h-16 px-6 flex items-center justify-between border-b border-slate-800/60">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-extrabold text-white text-xl shadow-lg shadow-blue-600/30">
+              B
             </div>
-          ) : (
-            <button onClick={handleGoogleAuth} className="text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-blue-600/20">
-              Sign In Free
-            </button>
-          )}
-        </div>
-      </header>
-
-      {/* HERO SECTION */}
-      <section className="pt-24 pb-20 px-6 text-center max-w-5xl mx-auto relative">
-        <div className="inline-flex items-center gap-2 bg-slate-900/80 border border-slate-800 text-blue-400 rounded-full px-4 py-1.5 text-xs font-bold mb-8 backdrop-blur-md shadow-inner">
-          <span className="flex h-2 w-2 rounded-full bg-blue-500 animate-ping" />
-          <span>America&apos;s #1 AI Scheduling Platform</span>
-        </div>
-
-        <h1 className="text-5xl sm:text-7xl font-extrabold text-white tracking-tight mb-8 leading-[1.1] max-w-4xl mx-auto">
-          Intelligent Scheduling <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-400">
-            Engineered For $100M Scale
-          </span>
-        </h1>
-
-        <p className="text-lg sm:text-xl text-slate-400 max-w-3xl mx-auto mb-12 font-normal leading-relaxed">
-          BookFlow AI eliminates double-booking conflicts, collects instant Stripe payments, dispatches free SMS reminders, and handles automated client rescheduling using Groq LPU AI.
-        </p>
-
-        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
-          <button onClick={handleGoogleAuth} className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-4 px-9 rounded-2xl text-sm transition-all shadow-xl shadow-blue-600/25 flex items-center justify-center gap-2.5">
-            <span>🚀 Start 14-Day Free Trial</span>
+            <span className="text-xl font-extrabold text-white tracking-tight">
+              BookFlow <span className="text-blue-500">AI</span>
+            </span>
+          </div>
+          <button 
+            className="lg:hidden text-slate-400 hover:text-white"
+            onClick={() => setSidebarOpen(false)}
+          >
+            <X className="w-5 h-5" />
           </button>
-          <a href="#demo-widget" className="w-full sm:w-auto border border-slate-800 bg-slate-900/60 hover:bg-slate-900 text-slate-300 font-bold py-4 px-9 rounded-2xl text-sm transition-all backdrop-blur-md">
-            ⚡ Explore Interactive Demo
-          </a>
         </div>
 
-        {/* Enterprise Compliance Trust Banner */}
-        <div className="pt-8 border-t border-slate-800/80 max-w-4xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-6 text-xs text-slate-400 font-bold">
-          <div className="flex items-center justify-center gap-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800/60">
-            <span className="text-emerald-400 text-base">🛡️</span> SOC 2 TYPE II
-          </div>
-          <div className="flex items-center justify-center gap-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800/60">
-            <span className="text-blue-400 text-base">🔒</span> HIPAA COMPLIANT
-          </div>
-          <div className="flex items-center justify-center gap-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800/60">
-            <span className="text-purple-400 text-base">💳</span> PCI-DSS LEVEL 1
-          </div>
-          <div className="flex items-center justify-center gap-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800/60">
-            <span className="text-amber-400 text-base">⚡</span> 99.99% UPTIME
+        {/* WORKSPACE SWITCHER */}
+        <div className="p-3">
+          <button className="w-full bg-slate-900/80 border border-slate-800/80 rounded-xl p-2.5 flex items-center justify-between hover:border-slate-700 transition-all text-left">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-6 h-6 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center font-bold text-xs">
+                US
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-white truncate">Acme Inc (US East)</p>
+                <p className="text-[10px] text-slate-400 truncate">Enterprise Plan</p>
+              </div>
+            </div>
+            <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" />
+          </button>
+        </div>
+
+        {/* NAVIGATION ITEMS */}
+        <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
+          {navigationItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.name;
+            return (
+              <button
+                key={item.name}
+                onClick={() => {
+                  setActiveTab(item.name);
+                  setSidebarOpen(false);
+                }}
+                className={`
+                  w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all relative
+                  ${isActive 
+                    ? "bg-gradient-to-r from-blue-600/20 to-indigo-600/10 text-white border border-blue-500/30 shadow-lg shadow-blue-500/10" 
+                    : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/50"}
+                `}
+              >
+                <Icon className={`w-4 h-4 ${isActive ? "text-blue-400" : "text-slate-400"}`} />
+                <span>{item.name}</span>
+                {isActive && (
+                  <motion.div 
+                    layoutId="activeTabIndicator"
+                    className="absolute right-2 w-1.5 h-1.5 rounded-full bg-blue-500 shadow-sm shadow-blue-500" 
+                  />
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* FOOTER USER CARD */}
+        <div className="p-3 border-t border-slate-800/60 bg-[#070a1a]">
+          <div className="flex items-center justify-between p-2 rounded-xl bg-slate-900/60 border border-slate-800/60">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-blue-500 flex items-center justify-center font-bold text-white text-xs">
+                MP
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-white truncate">Mantu Patra</p>
+                <p className="text-[10px] text-slate-400 truncate">mantu@bookflow.ai</p>
+              </div>
+            </div>
+            <Zap className="w-4 h-4 text-amber-400 flex-shrink-0 animate-pulse" />
           </div>
         </div>
-      </section>
+      </aside>
 
-      {/* FEATURE COMPARISON MATRIX SECTION */}
-      <section className="py-24 bg-slate-900/40 border-y border-slate-800/80 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl sm:text-5xl font-extrabold text-white mb-4">
-              Why Enterprise Teams Choose BookFlow AI
-            </h2>
-            <p className="text-slate-400 text-sm sm:text-base max-w-2xl mx-auto">
-              Legacy tools like Calendly charge extra per user and restrict features. BookFlow AI delivers a complete, unthrottled feature stack.
+      {/* MAIN CONTENT AREA */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        
+        {/* TOPBAR */}
+        <header className="h-16 bg-[#090d20]/80 backdrop-blur-xl border-b border-slate-800/60 px-4 sm:px-8 flex items-center justify-between sticky top-0 z-30">
+          <div className="flex items-center gap-4">
+            <button 
+              className="lg:hidden text-slate-400 hover:text-white p-1"
+              onClick={() => setSidebarOpen(true)}
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            
+            {/* SEARCH BAR */}
+            <div className="relative hidden sm:block w-72">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input 
+                type="text" 
+                placeholder="Search appointments, customers, pages... (⌘K)"
+                className="w-full bg-slate-900/90 border border-slate-800 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-blue-500/60 transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* AI Floating Button Trigger */}
+            <button 
+              onClick={() => setShowAiFloating(!showAiFloating)}
+              className="flex items-center gap-2 bg-gradient-to-r from-blue-600/20 to-indigo-600/20 border border-blue-500/30 hover:border-blue-500/60 text-blue-400 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-blue-400 animate-spin" />
+              <span className="hidden sm:inline">AI Copilot</span>
+            </button>
+
+            {/* Notifications */}
+            <button className="relative p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 transition-all">
+              <Bell className="w-4 h-4" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-blue-500 animate-ping" />
+            </button>
+
+            {/* Live US EST Status Badge */}
+            <div className="hidden md:flex items-center gap-2 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span>US EST Timezone</span>
+            </div>
+          </div>
+        </header>
+
+        {/* DYNAMIC DASHBOARD BODY */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-8">
+          
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.2 }}
+            >
+              {activeTab === "Dashboard" && <DashboardView setActiveTab={setActiveTab} />}
+              {activeTab === "Calendar" && <CalendarView />}
+              {activeTab === "Appointments" && <AppointmentsView />}
+              {activeTab === "Booking Pages" && <BookingPagesView />}
+              {activeTab === "Customers" && <CustomersView />}
+              {activeTab === "Payments" && <PaymentsView />}
+              {activeTab === "AI Assistant" && <AiAssistantView messages={aiChatMessages} onSend={handleSendMessage} input={chatInput} setInput={setChatInput} />}
+              {activeTab === "SMS & Email" && <SmsEmailView />}
+              {activeTab === "Availability" && <AvailabilityView />}
+              {activeTab === "Team" && <TeamView />}
+              {activeTab === "Analytics" && <AnalyticsView />}
+              {activeTab === "Integrations" && <IntegrationsView />}
+              {activeTab === "API & Webhooks" && <ApiWebhooksView />}
+              {activeTab === "Billing" && <BillingView />}
+              {activeTab === "Security" && <SecurityView />}
+              {activeTab === "Settings" && <SettingsView />}
+            </motion.div>
+          </AnimatePresence>
+
+        </main>
+      </div>
+
+      {/* FLOATING AI COPILOT DRAWER */}
+      {showAiFloating && (
+        <motion.div 
+          initial={{ opacity: 0, x: 300 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: 300 }}
+          className="fixed bottom-6 right-6 w-96 h-[520px] bg-[#090d20]/95 backdrop-blur-2xl border border-slate-800 rounded-3xl shadow-2xl z-50 flex flex-col overflow-hidden"
+        >
+          <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-between text-white">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4" />
+              <h3 className="font-bold text-xs tracking-wide uppercase">BookFlow AI Copilot</h3>
+            </div>
+            <button onClick={() => setShowAiFloating(false)} className="text-white/80 hover:text-white">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-950/80 text-xs">
+            {aiChatMessages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[85%] p-3 rounded-2xl ${msg.role === "user" ? "bg-blue-600 text-white" : "bg-slate-900 border border-slate-800 text-slate-200"}`}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <form onSubmit={handleSendMessage} className="p-3 bg-slate-900 border-t border-slate-800 flex gap-2">
+            <input 
+              type="text" 
+              placeholder="Ask Groq AI to reschedule, query stats..."
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+            />
+            <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-xl">
+              <Send className="w-4 h-4" />
+            </button>
+          </form>
+        </motion.div>
+      )}
+
+    </div>
+  );
+}
+
+/* ==========================================================================
+   MODULE 1: DASHBOARD VIEW
+   ========================================================================== */
+function DashboardView({ setActiveTab }: { setActiveTab: (tab: string) => void }) {
+  return (
+    <div className="space-y-8">
+      {/* HERO BANNER */}
+      <div className="relative overflow-hidden rounded-3xl glass-panel p-8 border border-slate-800/80 bg-gradient-to-r from-blue-900/20 via-indigo-900/10 to-transparent">
+        <div className="absolute top-0 right-0 -translate-y-12 translate-x-12 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-bold">
+              <Zap className="w-3.5 h-3.5" />
+              <span>Real-Time Groq AI Optimizer Active</span>
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+              Welcome back, <span className="text-gradient">Mantu Patra</span>
+            </h1>
+            <p className="text-slate-400 text-xs sm:text-sm max-w-xl">
+              Your AI Scheduling pipeline is performing 34% better than last week. 12 appointments booked today across US EST timezone.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-slate-900/90 border border-slate-800 p-8 rounded-3xl relative hover:border-blue-500/50 transition-all shadow-xl">
-              <div className="w-12 h-12 bg-blue-600/10 text-blue-400 rounded-2xl flex items-center justify-center font-bold text-2xl mb-6 border border-blue-500/20">
-                ⚡
-              </div>
-              <h3 className="text-xl font-bold text-white mb-3">Groq LPU AI Rescheduling</h3>
-              <p className="text-xs text-slate-400 leading-relaxed mb-4">
-                Sub-second conversational rescheduling. Clients can talk directly with your booking bot to modify meetings instantly.
-              </p>
-              <div className="text-[11px] font-bold text-blue-400">✓ Included in all plans</div>
-            </div>
-
-            <div className="bg-slate-900/90 border border-slate-800 p-8 rounded-3xl relative hover:border-emerald-500/50 transition-all shadow-xl">
-              <div className="w-12 h-12 bg-emerald-600/10 text-emerald-400 rounded-2xl flex items-center justify-center font-bold text-2xl mb-6 border border-emerald-500/20">
-                💬
-              </div>
-              <h3 className="text-xl font-bold text-white mb-3">Zero-Cost SMS Reminders</h3>
-              <p className="text-xs text-slate-400 leading-relaxed mb-4">
-                Reduce client no-shows by 95%. Automated SMS text notifications dispatched directly under your [BookFlow AI] brand name.
-              </p>
-              <div className="text-[11px] font-bold text-emerald-400">✓ Free unlimited SMS</div>
-            </div>
-
-            <div className="bg-slate-900/90 border border-slate-800 p-8 rounded-3xl relative hover:border-purple-500/50 transition-all shadow-xl">
-              <div className="w-12 h-12 bg-purple-600/10 text-purple-400 rounded-2xl flex items-center justify-center font-bold text-2xl mb-6 border border-purple-500/20">
-                💳
-              </div>
-              <h3 className="text-xl font-bold text-white mb-3">Stripe Paid Sessions</h3>
-              <p className="text-xs text-slate-400 leading-relaxed mb-4">
-                Collect deposits or full session amounts ($150 Strategy Calls) seamlessly before confirming a booking on your calendar.
-              </p>
-              <div className="text-[11px] font-bold text-purple-400">✓ Zero platform commission</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* INDUSTRY WORKFLOW TABS SECTION */}
-      <section className="py-24 px-6 max-w-6xl mx-auto">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl sm:text-5xl font-extrabold text-white mb-4">
-            Built For US High-Revenue Services
-          </h2>
-          <p className="text-slate-400 text-sm max-w-xl mx-auto">
-            Tailored scheduling pipelines for specialized professional fields across the United States.
-          </p>
-
-          <div className="flex flex-wrap justify-center gap-3 mt-8">
-            <button
-              onClick={() => setActiveNiche("coaches")}
-              className={`px-6 py-3 rounded-2xl text-xs font-bold transition-all ${
-                activeNiche === "coaches" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30" : "bg-slate-900 border border-slate-800 text-slate-400 hover:text-white"
-              }`}
+          <div className="flex flex-wrap items-center gap-3">
+            <button 
+              onClick={() => setActiveTab("Booking Pages")}
+              className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-5 py-3 rounded-xl transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2"
             >
-              💼 Coaches & Consultants
+              <Plus className="w-4 h-4" /> Create Booking Page
             </button>
-            <button
-              onClick={() => setActiveNiche("healthcare")}
-              className={`px-6 py-3 rounded-2xl text-xs font-bold transition-all ${
-                activeNiche === "healthcare" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30" : "bg-slate-900 border border-slate-800 text-slate-400 hover:text-white"
-              }`}
+            <button 
+              onClick={() => setActiveTab("Integrations")}
+              className="bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 font-bold text-xs px-5 py-3 rounded-xl transition-all"
             >
-              🏥 Doctors & Dentists
-            </button>
-            <button
-              onClick={() => setActiveNiche("realestate")}
-              className={`px-6 py-3 rounded-2xl text-xs font-bold transition-all ${
-                activeNiche === "realestate" ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30" : "bg-slate-900 border border-slate-800 text-slate-400 hover:text-white"
-              }`}
-            >
-              🏡 Real Estate & Law
+              Connect Calendar
             </button>
           </div>
         </div>
+      </div>
 
-        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-8 sm:p-10 max-w-4xl mx-auto shadow-2xl">
-          {activeNiche === "coaches" && (
-            <div className="space-y-4">
-              <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Coaching & Agency Flow</span>
-              <h3 className="text-2xl font-bold text-white">Monetize Your Time Before Booking</h3>
-              <p className="text-slate-400 text-sm leading-relaxed">
-                Coaches use BookFlow AI to sell 45-minute $150 Strategy Sessions. Stripe checkout verifies payment, Zoom links generate automatically, and calendar slots adjust across Eastern (EST) and Pacific (PST) time zones.
-              </p>
+      {/* METRIC CARDS GRID */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        {[
+          { title: "Today's Calls", val: "12", change: "+18%", positive: true },
+          { title: "Revenue Today", val: "$1,850.00", change: "+32%", positive: true },
+          { title: "Upcoming Meetings", val: "48", change: "+8%", positive: true },
+          { title: "No-Show Rate", val: "1.2%", change: "-4.1%", positive: true },
+          { title: "SMS Reminders", val: "142", change: "+100%", positive: true },
+          { title: "Conversion Rate", val: "42.8%", change: "+5.4%", positive: true }
+        ].map((card, i) => (
+          <div key={i} className="glass-panel p-5 rounded-2xl glass-panel-hover">
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{card.title}</p>
+            <h3 className="text-2xl font-extrabold text-white mt-2">{card.val}</h3>
+            <div className="flex items-center gap-1 mt-2">
+              {card.positive ? (
+                <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <ArrowDownRight className="w-3.5 h-3.5 text-rose-400" />
+              )}
+              <span className={`text-xs font-bold ${card.positive ? "text-emerald-400" : "text-rose-400"}`}>
+                {card.change}
+              </span>
+              <span className="text-[10px] text-slate-500">vs last week</span>
             </div>
-          )}
-          {activeNiche === "healthcare" && (
-            <div className="space-y-4">
-              <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Healthcare & Dental Flow</span>
-              <h3 className="text-2xl font-bold text-white">HIPAA-Shielded Patient Intake</h3>
-              <p className="text-slate-400 text-sm leading-relaxed">
-                Medical practices collect patient notes protected by 256-bit HIPAA encryption. Custom buffer times ensure doctors have 15 minutes of rest between patient sessions.
-              </p>
-            </div>
-          )}
-          {activeNiche === "realestate" && (
-            <div className="space-y-4">
-              <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Real Estate & Legal Flow</span>
-              <h3 className="text-2xl font-bold text-white">Automated Round-Robin Routing</h3>
-              <p className="text-slate-400 text-sm leading-relaxed">
-                Realtors and Law firms distribute incoming client consultations equally across team members using our automated Round-Robin Lead Routing algorithm.
-              </p>
-            </div>
-          )}
-        </div>
-      </section>
+          </div>
+        ))}
+      </div>
 
-      {/* INTERACTIVE BOOKING DEMO WIDGET SECTION */}
-      <section id="demo-widget" className="py-24 bg-slate-900/30 border-t border-slate-800 px-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-12">
-            <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Live Interactive Widget</span>
-            <h2 className="text-3xl sm:text-5xl font-extrabold text-white mt-2">Test The Live Booking Engine</h2>
+      {/* MAIN ANALYTICS CHART & AI SUGGESTIONS GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* REVENUE & BOOKINGS SIMULATED CHART */}
+        <div className="lg:col-span-2 glass-panel p-6 rounded-3xl border border-slate-800/80 space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-white">Booking & Revenue Velocity</h3>
+              <p className="text-xs text-slate-400">Real-time telemetry aggregated from US clients</p>
+            </div>
+            <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 p-1 rounded-xl text-xs font-bold">
+              <button className="px-3 py-1 rounded-lg bg-blue-600 text-white">Revenue</button>
+              <button className="px-3 py-1 rounded-lg text-slate-400 hover:text-white">Bookings</button>
+            </div>
           </div>
 
-          <div className="bg-slate-900/90 rounded-3xl border border-slate-800 shadow-2xl p-6 sm:p-10 text-slate-100 backdrop-blur-xl">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6">
-              1. Select Appointment Type:
-            </h3>
+          {/* VISUAL CHART BAR MOCK */}
+          <div className="h-64 flex items-end justify-between gap-3 pt-8 px-2 border-b border-slate-800/80 pb-4">
+            {[40, 65, 45, 80, 95, 70, 85, 100, 75, 90, 110, 125].map((h, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center gap-2 group relative">
+                <div 
+                  style={{ height: `${h}px` }} 
+                  className="w-full bg-gradient-to-t from-blue-600/40 to-blue-500 rounded-t-lg group-hover:from-blue-500 group-hover:to-indigo-400 transition-all cursor-pointer relative"
+                >
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded border border-slate-800 transition-opacity whitespace-nowrap z-20">
+                    ${h * 20} USD
+                  </div>
+                </div>
+                <span className="text-[10px] text-slate-500 font-bold">Jul {i + 15}</span>
+              </div>
+            ))}
+          </div>
+        </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3.5 mb-10">
-              <button
-                onClick={() => setSelectedService("consultation")}
-                className={`p-4 rounded-2xl border text-left transition-all ${
-                  selectedService === "consultation"
-                    ? "border-blue-500 bg-blue-600/10 ring-1 ring-blue-500 shadow-lg shadow-blue-500/10"
-                    : "border-slate-800 bg-slate-950/80 text-slate-400 hover:border-slate-700"
-                }`}
-              >
-                <div className="font-bold text-xs text-white">Consultation Call</div>
-                <div className="text-[11px] text-slate-400 mt-1">15 mins • Free</div>
-              </button>
-
-              <button
-                onClick={() => setSelectedService("training")}
-                className={`p-4 rounded-2xl border text-left transition-all ${
-                  selectedService === "training"
-                    ? "border-blue-500 bg-blue-600/10 ring-1 ring-blue-500 shadow-lg shadow-blue-500/10"
-                    : "border-slate-800 bg-slate-950/80 text-slate-400 hover:border-slate-700"
-                }`}
-              >
-                <div className="font-bold text-xs text-white">Personal Training</div>
-                <div className="text-[11px] text-slate-400 mt-1">30 mins • Free</div>
-              </button>
-
-              <button
-                onClick={() => setSelectedService("demo")}
-                className={`p-4 rounded-2xl border text-left transition-all ${
-                  selectedService === "demo"
-                    ? "border-blue-500 bg-blue-600/10 ring-1 ring-blue-500 shadow-lg shadow-blue-500/10"
-                    : "border-slate-800 bg-slate-950/80 text-slate-400 hover:border-slate-700"
-                }`}
-              >
-                <div className="font-bold text-xs text-white">Live Demo Session</div>
-                <div className="text-[11px] text-slate-400 mt-1">30 mins • Free</div>
-              </button>
-
-              <button
-                onClick={() => setSelectedService("strategy")}
-                className={`p-4 rounded-2xl border text-left transition-all ${
-                  selectedService === "strategy"
-                    ? "border-blue-500 bg-blue-600/10 ring-1 ring-blue-500 shadow-lg shadow-blue-500/10"
-                    : "border-slate-800 bg-slate-950/80 text-slate-400 hover:border-slate-700"
-                }`}
-              >
-                <div className="font-bold text-xs text-white">⚡ Paid Strategy Call</div>
-                <div className="text-[11px] text-blue-400 font-bold mt-1">45 mins • $150 USD</div>
-              </button>
+        {/* AI SUGGESTIONS PANEL */}
+        <div className="glass-panel p-6 rounded-3xl border border-slate-800/80 space-y-6 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-4">
+              <Bot className="w-5 h-5 text-blue-400" />
+              <h3 className="text-lg font-bold text-white">Groq AI Telemetry</h3>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 divide-y md:divide-y-0 md:divide-x divide-slate-800/80">
-              {/* Host Info */}
-              <div className="pr-4 space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600/20 to-indigo-500/20 border border-blue-500/30 text-blue-400 flex items-center justify-center font-bold text-lg">
-                    FS
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-white text-base">Fatima Sy</h4>
-                    <p className="text-xs text-slate-400 uppercase font-semibold">{selectedService}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-2 text-xs text-slate-300 font-medium bg-slate-950/80 p-4 rounded-2xl border border-slate-800">
-                  <div>🕒 Buffer Padding: 15 mins included</div>
-                  <div>📹 Zoom / Google Meet Call</div>
-                  <div className="font-bold text-white">
-                    💳 Price: {selectedService === "strategy" ? "$150 USD (Stripe)" : "Free ($0)"}
-                  </div>
-                </div>
-
-                <div className="pt-2 space-y-2.5">
-                  <input
-                    type="text"
-                    placeholder="Your Name"
-                    value={clientName}
-                    onChange={(e) => setClientName(e.target.value)}
-                    className="w-full border border-slate-800 bg-slate-950 rounded-xl px-3.5 py-2.5 text-xs text-white focus:border-blue-500 focus:outline-none"
-                  />
-                  <input
-                    type="email"
-                    placeholder="Your Email"
-                    value={clientEmail}
-                    onChange={(e) => setClientEmail(e.target.value)}
-                    className="w-full border border-slate-800 bg-slate-950 rounded-xl px-3.5 py-2.5 text-xs text-white focus:border-blue-500 focus:outline-none"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Your Phone (For Free SMS)"
-                    value={clientPhone}
-                    onChange={(e) => setClientPhone(e.target.value)}
-                    className="w-full border border-slate-800 bg-slate-950 rounded-xl px-3.5 py-2.5 text-xs text-white focus:border-blue-500 focus:outline-none"
-                  />
-                </div>
+            <div className="space-y-3">
+              <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs space-y-1">
+                <p className="font-bold text-blue-300">💡 Buffer Optimization Recommended</p>
+                <p className="text-slate-400">Adding a 15-min buffer on Thursdays reduces fatigue and increases close rates by 14%.</p>
               </div>
 
-              {/* Calendar Picker */}
-              <div className="pt-6 md:pt-0 md:px-6">
-                <h5 className="font-bold text-white text-sm mb-4">Select a Date & Time</h5>
-                <div className="bg-slate-950/80 p-4 rounded-2xl text-center border border-slate-800">
-                  <div className="text-xs font-bold text-slate-300 mb-3">July 2026</div>
-                  <div className="grid grid-cols-7 gap-1 text-[11px] text-slate-500 font-semibold mb-2">
-                    <span>SUN</span><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span>
-                  </div>
-                  <div className="grid grid-cols-7 gap-1 text-xs">
-                    {[...Array(31)].map((_, i) => (
-                      <button
-                        key={i}
-                        className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
-                          i + 1 === 28
-                            ? "bg-blue-600 text-white font-bold shadow-md shadow-blue-600/50"
-                            : "hover:bg-slate-800 text-slate-400"
-                        }`}
-                      >
-                        {i + 1}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Time Slots */}
-              <div className="pt-6 md:pt-0 md:pl-6 space-y-3">
-                <h5 className="font-bold text-white text-sm mb-4">Available EST Slots</h5>
-                {loading ? (
-                  <p className="text-xs text-slate-500 py-4 text-center">Fetching FastAPI live slots...</p>
-                ) : (
-                  <div className="space-y-2">
-                    {slots.slice(0, 4).map((s: any, idx: number) => (
-                      <div key={idx} className="flex gap-2">
-                        <button
-                          onClick={() => setSelectedSlot(s.start_time_utc)}
-                          className={`flex-1 py-3 px-3 rounded-xl border text-xs font-bold text-center transition-all ${
-                            selectedSlot === s.start_time_utc
-                              ? "border-blue-500 bg-blue-600/20 text-blue-400"
-                              : "border-slate-800 bg-slate-950/80 text-slate-300 hover:border-slate-700"
-                          }`}
-                        >
-                          {s.us_local_time}
-                        </button>
-                        {selectedSlot === s.start_time_utc && (
-                          <button
-                            onClick={handleBookingInitiate}
-                            disabled={bookingLoading}
-                            className="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-4 rounded-xl shadow-md transition-all"
-                          >
-                            {selectedService === "strategy" ? "Pay $150" : "Confirm"}
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {booked && (
-                  <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs rounded-2xl font-medium text-center shadow-sm space-y-1">
-                    <div className="font-bold">✓ Booking Confirmed in FastAPI Database!</div>
-                    <div className="text-[10px] text-emerald-300">
-                      Booking ID: {bookingResponse?.booking_id || "BK-20260728"}
-                    </div>
-                  </div>
-                )}
+              <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-xs space-y-1">
+                <p className="font-bold text-purple-300">⚡ SMS Speed-to-Lead Triggered</p>
+                <p className="text-slate-400">Automated SMS dispatched to +1 (555) 019-2834 generated instant confirmation.</p>
               </div>
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* PRICING SECTION */}
-      <section className="py-24 px-6 max-w-6xl mx-auto text-center">
-        <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Transparent SaaS Pricing</span>
-        <h2 className="text-3xl sm:text-5xl font-extrabold text-white mt-2 mb-6">Simple Pricing For Growing Teams</h2>
-
-        {/* Monthly vs Annual Toggle */}
-        <div className="inline-flex items-center bg-slate-900 border border-slate-800 p-1 rounded-full mb-16">
-          <button
-            onClick={() => setBillingCycle("monthly")}
-            className={`px-5 py-2 rounded-full text-xs font-bold transition-all ${
-              billingCycle === "monthly" ? "bg-blue-600 text-white" : "text-slate-400"
-            }`}
+          <button 
+            onClick={() => setActiveTab("AI Assistant")}
+            className="w-full bg-slate-900 hover:bg-slate-800 border border-slate-800 text-blue-400 font-bold text-xs py-3 rounded-xl transition-all flex items-center justify-center gap-2"
           >
-            Monthly Billing
-          </button>
-          <button
-            onClick={() => setBillingCycle("annual")}
-            className={`px-5 py-2 rounded-full text-xs font-bold transition-all ${
-              billingCycle === "annual" ? "bg-blue-600 text-white" : "text-slate-400"
-            }`}
-          >
-            Annual Billing (Save 20%)
+            <span>Open AI Copilot Console</span>
+            <ArrowUpRight className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
-          {/* Starter Plan */}
-          <div className="bg-slate-900/60 border border-slate-800 p-8 rounded-3xl relative flex flex-col justify-between">
-            <div>
-              <h3 className="text-xl font-bold text-white mb-2">Starter</h3>
-              <p className="text-xs text-slate-400 mb-6">Ideal for solopreneurs & individual freelancers.</p>
-              <div className="text-4xl font-extrabold text-white mb-6">$0 <span className="text-xs text-slate-500 font-normal">/ month forever</span></div>
-              <ul className="space-y-3 text-xs text-slate-300 mb-8">
-                <li>✓ 1 Calendar Sync Connection</li>
-                <li>✓ Unlimited Free Consultation Calls</li>
-                <li>✓ Groq AI Rescheduling Chatbot</li>
-                <li>✓ Google & Zoom Video Links</li>
-              </ul>
-            </div>
-            <button onClick={handleGoogleAuth} className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl text-xs transition-all">
-              Get Started Free
-            </button>
-          </div>
+      </div>
 
-          {/* Professional Plan (Most Popular) */}
-          <div className="bg-slate-900 border-2 border-blue-500 p-8 rounded-3xl relative flex flex-col justify-between shadow-2xl shadow-blue-500/10">
-            <span className="absolute -top-3.5 right-6 bg-blue-600 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full tracking-wider">Most Popular</span>
-            <div>
-              <h3 className="text-xl font-bold text-white mb-2">Professional</h3>
-              <p className="text-xs text-slate-400 mb-6">For growing coaches, agencies & consultants.</p>
-              <div className="text-4xl font-extrabold text-white mb-6">
-                {billingCycle === "annual" ? "$15" : "$19"} <span className="text-xs text-slate-500 font-normal">/ month</span>
-              </div>
-              <ul className="space-y-3 text-xs text-slate-300 mb-8">
-                <li>✓ Unlimited Calendar Connections</li>
-                <li>✓ Stripe Escrow Paid Strategy Calls</li>
-                <li>✓ Unlimited Free SMS Reminders</li>
-                <li>✓ Custom Buffer Padding Times</li>
-                <li>✓ HIPAA Encryption Protection</li>
-              </ul>
-            </div>
-            <button onClick={handleGoogleAuth} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl text-xs transition-all shadow-lg shadow-blue-600/25">
-              Start 14-Day Free Trial
-            </button>
+      {/* UPCOMING MEETINGS DATA TABLE */}
+      <div className="glass-panel rounded-3xl border border-slate-800/80 overflow-hidden">
+        <div className="p-6 border-b border-slate-800/80 flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-white">Upcoming Confirmed Meetings</h3>
+            <p className="text-xs text-slate-400">Live sync with Google Calendar & Stripe Payments</p>
           </div>
-
-          {/* Enterprise Plan */}
-          <div className="bg-slate-900/60 border border-slate-800 p-8 rounded-3xl relative flex flex-col justify-between">
-            <div>
-              <h3 className="text-xl font-bold text-white mb-2">Enterprise</h3>
-              <p className="text-xs text-slate-400 mb-6">For multi-agent teams & large clinic networks.</p>
-              <div className="text-4xl font-extrabold text-white mb-6">
-                {billingCycle === "annual" ? "$39" : "$49"} <span className="text-xs text-slate-500 font-normal">/ month</span>
-              </div>
-              <ul className="space-y-3 text-xs text-slate-300 mb-8">
-                <li>✓ Round-Robin Lead Distribution</li>
-                <li>✓ Unlimited Team Members</li>
-                <li>✓ Custom API & Webhook Triggers</li>
-                <li>✓ Dedicated SLA & 24/7 Priority Support</li>
-              </ul>
-            </div>
-            <button onClick={handleGoogleAuth} className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl text-xs transition-all">
-              Contact Sales
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ SECTION */}
-      <section className="py-24 bg-slate-900/40 border-t border-slate-800/80 px-6 max-w-4xl mx-auto">
-        <div className="text-center mb-16">
-          <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Questions & Answers</span>
-          <h2 className="text-3xl font-extrabold text-white mt-2">Frequently Asked Questions</h2>
+          <button 
+            onClick={() => setActiveTab("Appointments")}
+            className="text-xs font-bold text-blue-400 hover:underline"
+          >
+            View All →
+          </button>
         </div>
 
-        <div className="space-y-4">
-          {faqs.map((faq, idx) => (
-            <div key={idx} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-              <button
-                onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
-                className="w-full p-5 text-left font-bold text-sm text-white flex justify-between items-center"
-              >
-                <span>{faq.q}</span>
-                <span className="text-blue-400">{openFaq === idx ? "−" : "+"}</span>
-              </button>
-              {openFaq === idx && (
-                <div className="p-5 pt-0 text-xs text-slate-400 leading-relaxed border-t border-slate-800/50">
-                  {faq.a}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-900/80 text-slate-400 font-bold uppercase tracking-wider border-b border-slate-800/80">
+              <tr>
+                <th className="p-4">Customer</th>
+                <th className="p-4">Service</th>
+                <th className="p-4">Date & Time</th>
+                <th className="p-4">Status</th>
+                <th className="p-4">Amount</th>
+                <th className="p-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60 font-medium text-slate-300">
+              {[
+                { name: "John Doe", email: "john@techcorp.com", service: "Paid Strategy Session", time: "Today, 3:00 PM EST", status: "CONFIRMED", amount: "$150.00" },
+                { name: "Sarah Connor", email: "sarah@cyberdyne.io", service: "15-Min Consultation", time: "Today, 4:30 PM EST", status: "CONFIRMED", amount: "Free" },
+                { name: "Michael Scott", email: "m.scott@dundermifflin.com", service: "Executive Coaching", time: "Tomorrow, 10:00 AM EST", status: "PENDING", amount: "$300.00" }
+              ].map((row, i) => (
+                <tr key={i} className="hover:bg-slate-900/50 transition-colors">
+                  <td className="p-4">
+                    <p className="font-bold text-white">{row.name}</p>
+                    <p className="text-[10px] text-slate-500">{row.email}</p>
+                  </td>
+                  <td className="p-4">{row.service}</td>
+                  <td className="p-4">{row.time}</td>
+                  <td className="p-4">
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold ${row.status === "CONFIRMED" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-amber-500/10 text-amber-400 border border-amber-500/20"}`}>
+                      {row.status}
+                    </span>
+                  </td>
+                  <td className="p-4 font-bold text-white">{row.amount}</td>
+                  <td className="p-4 text-right">
+                    <button className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-white">
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   MODULE 2: CALENDAR VIEW
+   ========================================================================== */
+function CalendarView() {
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-extrabold text-white">Calendar Engine</h1>
+          <p className="text-xs text-slate-400">Multi-calendar two-way synchronization active (EST Timezone)</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="bg-slate-900 border border-slate-800 p-1 rounded-xl text-xs font-bold flex">
+            <button className="px-3 py-1 rounded-lg bg-blue-600 text-white">Month</button>
+            <button className="px-3 py-1 rounded-lg text-slate-400 hover:text-white">Week</button>
+            <button className="px-3 py-1 rounded-lg text-slate-400 hover:text-white">Day</button>
+          </div>
+          <button className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-2">
+            <Plus className="w-4 h-4" /> Add Event
+          </button>
+        </div>
+      </div>
+
+      <div className="glass-panel p-6 rounded-3xl border border-slate-800/80">
+        <div className="grid grid-cols-7 gap-2 text-center text-xs font-bold text-slate-400 mb-4 pb-2 border-b border-slate-800">
+          <span>SUN</span><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span>
+        </div>
+        <div className="grid grid-cols-7 gap-2 text-xs">
+          {[...Array(31)].map((_, i) => (
+            <div key={i} className={`min-h-[90px] p-2 rounded-2xl border ${i + 1 === 28 ? "border-blue-500 bg-blue-600/10" : "border-slate-800/60 bg-slate-950/40"} flex flex-col justify-between`}>
+              <span className={`font-bold ${i + 1 === 28 ? "text-blue-400" : "text-slate-400"}`}>{i + 1}</span>
+              {i % 4 === 0 && (
+                <div className="p-1.5 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-[10px] text-indigo-300 font-bold truncate">
+                  Strategy Call ($150)
                 </div>
               )}
             </div>
           ))}
         </div>
-      </section>
+      </div>
+    </div>
+  );
+}
 
-      {/* FOOTER */}
-      <footer className="bg-slate-950 border-t border-slate-800/80 py-16 px-6 text-xs text-slate-500">
-        <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
-          <div>
-            <h5 className="font-bold text-white mb-4 uppercase tracking-wider">Product</h5>
-            <ul className="space-y-2.5">
-              <li>Groq AI Assistant</li>
-              <li>Stripe Escrow Payments</li>
-              <li>SMS Reminders</li>
-              <li>Calendar Sync Engine</li>
-            </ul>
+/* ==========================================================================
+   MODULE 3: APPOINTMENTS VIEW
+   ========================================================================== */
+function AppointmentsView() {
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-extrabold text-white">Appointments Database</h1>
+          <p className="text-xs text-slate-400">Search, filter, and export full client meeting records</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button className="bg-slate-900 border border-slate-800 text-slate-300 text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-2">
+            <Download className="w-4 h-4" /> Export CSV
+          </button>
+        </div>
+      </div>
+
+      <div className="glass-panel rounded-3xl border border-slate-800/80 p-4">
+        <div className="flex items-center gap-4 mb-4">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input 
+              type="text" 
+              placeholder="Search by client name, email, or meeting ID..."
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-4 py-2 text-xs text-white"
+            />
           </div>
-          <div>
-            <h5 className="font-bold text-white mb-4 uppercase tracking-wider">Solutions</h5>
-            <ul className="space-y-2.5">
-              <li>For Coaches & Consultants</li>
-              <li>For Healthcare & Clinics</li>
-              <li>For Real Estate Brokers</li>
-              <li>For Enterprise Teams</li>
-            </ul>
-          </div>
-          <div>
-            <h5 className="font-bold text-white mb-4 uppercase tracking-wider">Resources</h5>
-            <ul className="space-y-2.5">
-              <li>FastAPI API Documentation</li>
-              <li>SOC 2 & HIPAA Compliance</li>
-              <li>System Health Status</li>
-              <li>Integration Guides</li>
-            </ul>
-          </div>
-          <div>
-            <h5 className="font-bold text-white mb-4 uppercase tracking-wider">Company</h5>
-            <ul className="space-y-2.5">
-              <li>About BookFlow AI</li>
-              <li>Careers</li>
-              <li>Privacy Policy</li>
-              <li>Terms of Service</li>
-            </ul>
-          </div>
+          <button className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-xs font-bold text-slate-300 flex items-center gap-2">
+            <Filter className="w-4 h-4" /> Filter
+          </button>
         </div>
 
-        <div className="max-w-6xl mx-auto pt-8 border-t border-slate-800/60 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div>© Copyright BookFlow AI 2026. Designed for US Enterprise Scale. All rights reserved.</div>
-          <div className="flex gap-6">
-            <Link href="/dashboard" className="hover:text-white">Admin Dashboard</Link>
-            <span>Status: 99.99% Operational</span>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-900/80 text-slate-400 font-bold uppercase tracking-wider border-b border-slate-800/80">
+              <tr>
+                <th className="p-4">Meeting ID</th>
+                <th className="p-4">Customer</th>
+                <th className="p-4">Event Type</th>
+                <th className="p-4">Date</th>
+                <th className="p-4">Status</th>
+                <th className="p-4 text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/60 font-medium text-slate-300">
+              {[
+                { id: "BK-8801", name: "Fatima Sy", email: "fatima@domain.com", type: "45 Min Paid Strategy", date: "July 28, 2026", status: "CONFIRMED", amount: "$150.00" },
+                { id: "BK-8802", name: "David Miller", email: "david@law.com", type: "15 Min Legal Intro", date: "July 29, 2026", status: "COMPLETED", amount: "Free" }
+              ].map((row, i) => (
+                <tr key={i} className="hover:bg-slate-900/50">
+                  <td className="p-4 font-mono font-bold text-blue-400">{row.id}</td>
+                  <td className="p-4">
+                    <p className="font-bold text-white">{row.name}</p>
+                    <p className="text-[10px] text-slate-500">{row.email}</p>
+                  </td>
+                  <td className="p-4">{row.type}</td>
+                  <td className="p-4">{row.date}</td>
+                  <td className="p-4">
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      {row.status}
+                    </span>
+                  </td>
+                  <td className="p-4 text-right font-bold text-white">{row.amount}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   MODULE 4: BOOKING PAGES VIEW
+   ========================================================================== */
+function BookingPagesView() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-extrabold text-white">Booking Pages</h1>
+          <p className="text-xs text-slate-400">Manage high-converting scheduling links and payment pages</p>
+        </div>
+        <button className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl flex items-center gap-2">
+          <Plus className="w-4 h-4" /> New Booking Page
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {[
+          { title: "45-Min Executive Strategy Call", price: "$150 USD", link: "bookflow.ai/mantu/strategy", views: "1,240 views", active: true },
+          { title: "15-Min Free Consultation Call", price: "Free", link: "bookflow.ai/mantu/consult", views: "3,890 views", active: true },
+          { title: "Personal Training Session", price: "$75 USD", link: "bookflow.ai/mantu/pt", views: "510 views", active: false }
+        ].map((card, i) => (
+          <div key={i} className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-4 glass-panel-hover flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${card.active ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-slate-800 text-slate-400"}`}>
+                  {card.active ? "ACTIVE" : "PAUSED"}
+                </span>
+                <span className="text-xs font-bold text-white">{card.price}</span>
+              </div>
+              <h3 className="font-bold text-white text-base mb-1">{card.title}</h3>
+              <p className="text-xs font-mono text-blue-400">{card.link}</p>
+            </div>
+
+            <div className="pt-4 border-t border-slate-800/80 flex items-center justify-between">
+              <span className="text-xs text-slate-500">{card.views}</span>
+              <div className="flex gap-2">
+                <button className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white">
+                  <Copy className="w-3.5 h-3.5" />
+                </button>
+                <button className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white">
+                  <Share2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   MODULE 5: CUSTOMERS (CRM) VIEW
+   ========================================================================== */
+function CustomersView() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-extrabold text-white">Client CRM Database</h1>
+          <p className="text-xs text-slate-400">Total customer lifetime value and booking interaction history</p>
+        </div>
+      </div>
+
+      <div className="glass-panel rounded-3xl border border-slate-800/80 p-6 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[
+            { name: "John Doe", email: "john@techcorp.com", calls: 4, spent: "$600.00", tag: "VIP Client" },
+            { name: "Sarah Connor", email: "sarah@cyberdyne.io", calls: 2, spent: "$150.00", tag: "Standard" }
+          ].map((client, i) => (
+            <div key={i} className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center font-bold text-white text-xs">
+                  {client.name.substring(0, 2)}
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                  {client.tag}
+                </span>
+              </div>
+              <div>
+                <h4 className="font-bold text-white text-sm">{client.name}</h4>
+                <p className="text-xs text-slate-400">{client.email}</p>
+              </div>
+              <div className="pt-2 border-t border-slate-800 flex justify-between text-xs font-bold">
+                <span className="text-slate-500">{client.calls} Total Calls</span>
+                <span className="text-emerald-400">{client.spent} LTV</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   MODULE 6: PAYMENTS VIEW
+   ========================================================================== */
+function PaymentsView() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-extrabold text-white">Stripe Payments & Escrow</h1>
+          <p className="text-xs text-slate-400">Processed session payouts, escrow deposits, and invoice telemetry</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div className="glass-panel p-6 rounded-3xl border border-slate-800">
+          <p className="text-xs font-bold text-slate-400 uppercase">Gross Volume</p>
+          <h2 className="text-3xl font-extrabold text-white mt-2">$18,450.00</h2>
+        </div>
+        <div className="glass-panel p-6 rounded-3xl border border-slate-800">
+          <p className="text-xs font-bold text-slate-400 uppercase">Available Payout</p>
+          <h2 className="text-3xl font-extrabold text-emerald-400 mt-2">$4,120.00</h2>
+        </div>
+        <div className="glass-panel p-6 rounded-3xl border border-slate-800">
+          <p className="text-xs font-bold text-slate-400 uppercase">Pending Escrow</p>
+          <h2 className="text-3xl font-extrabold text-purple-400 mt-2">$1,250.00</h2>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   MODULE 7: AI ASSISTANT VIEW
+   ========================================================================== */
+function AiAssistantView({ messages, onSend, input, setInput }: any) {
+  return (
+    <div className="h-[calc(100vh-140px)] glass-panel rounded-3xl border border-slate-800/80 flex flex-col overflow-hidden">
+      <div className="p-4 bg-slate-900/80 border-b border-slate-800 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center font-bold">
+            <Bot className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="font-bold text-white text-sm">Groq LPU Conversational Scheduler</h3>
+            <p className="text-[10px] text-emerald-400 font-bold">● Active 250 Tokens/Sec Response Rate</p>
           </div>
         </div>
-      </footer>
+      </div>
+
+      <div className="flex-1 p-6 overflow-y-auto space-y-4 text-xs">
+        {messages.map((m: any, idx: number) => (
+          <div key={idx} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div className={`max-w-[75%] p-4 rounded-2xl ${m.role === "user" ? "bg-blue-600 text-white" : "bg-slate-900 border border-slate-800 text-slate-200"}`}>
+              {m.content}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <form onSubmit={onSend} className="p-4 bg-slate-900 border-t border-slate-800 flex gap-3">
+        <input 
+          type="text" 
+          placeholder="Ask AI to reschedule appointments, check conflicts, or optimize calendar..."
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-blue-500"
+        />
+        <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold text-xs flex items-center gap-2">
+          <span>Send</span>
+          <Send className="w-3.5 h-3.5" />
+        </button>
+      </form>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   MODULE 8: SMS & EMAIL CAMPAIGNS VIEW
+   ========================================================================== */
+function SmsEmailView() {
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-extrabold text-white">Automated Speed-To-Lead Messaging</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-4">
+          <h3 className="font-bold text-white text-sm">SMS Notification Gateway</h3>
+          <p className="text-xs text-slate-400">Dispatched under custom [BookFlow AI] sender ID at zero cost per message.</p>
+          <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs font-mono text-emerald-400">
+            &quot;Hi John! Your Strategy Call with Mantu Patra is confirmed for 3:00 PM EST. Zoom Link: https://zoom.us/j/9901&quot;
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   MODULE 9: AVAILABILITY VIEW
+   ========================================================================== */
+function AvailabilityView() {
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-extrabold text-white">Working Hours & Buffer Settings</h1>
+      <div className="glass-panel p-6 rounded-3xl border border-slate-800 max-w-2xl space-y-4">
+        {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map((day, i) => (
+          <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs">
+            <span className="font-bold text-white">{day}</span>
+            <span className="text-slate-400 font-mono">09:00 AM EST - 05:00 PM EST</span>
+            <span className="text-emerald-400 font-bold">Active</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   MODULE 10: TEAM ROUTING VIEW
+   ========================================================================== */
+function TeamView() {
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-extrabold text-white">Team Members & Round-Robin Routing</h1>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {[
+          { name: "Dr. Sarah Jenkins", role: "Medical Consultant", leads: 42 },
+          { name: "Alex Rivera", role: "Senior Sales Lead", leads: 88 }
+        ].map((m, i) => (
+          <div key={i} className="glass-panel p-5 rounded-2xl border border-slate-800 space-y-2">
+            <h4 className="font-bold text-white text-sm">{m.name}</h4>
+            <p className="text-xs text-slate-400">{m.role}</p>
+            <p className="text-xs text-blue-400 font-bold">{m.leads} Leads Assigned</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   MODULE 11: ANALYTICS VIEW
+   ========================================================================== */
+function AnalyticsView() {
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-extrabold text-white">Conversion & Traffic Analytics</h1>
+      <div className="glass-panel p-6 rounded-3xl border border-slate-800">
+        <p className="text-xs text-slate-400">Total Monthly Traffic Conversion Rate: <span className="text-emerald-400 font-bold">42.8%</span></p>
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   MODULE 12: INTEGRATIONS VIEW
+   ========================================================================== */
+function IntegrationsView() {
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-extrabold text-white">Enterprise Integrations</h1>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        {[
+          { name: "Google Calendar", desc: "Two-way live event sync", connected: true },
+          { name: "Zoom Video", desc: "Instant class meeting link generation", connected: true },
+          { name: "Stripe Payments", desc: "Escrow checkout & paid booking", connected: true },
+          { name: "Microsoft Outlook", desc: "Exchange calendar connector", connected: false },
+          { name: "Twilio Gateway", desc: "Speed-to-lead SMS triggers", connected: true }
+        ].map((card, i) => (
+          <div key={i} className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-3 glass-panel-hover">
+            <div className="flex justify-between items-center">
+              <h3 className="font-bold text-white text-sm">{card.name}</h3>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${card.connected ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-slate-800 text-slate-400"}`}>
+                {card.connected ? "CONNECTED" : "DISCONNECTED"}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">{card.desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   MODULE 13: API & WEBHOOKS VIEW
+   ========================================================================== */
+function ApiWebhooksView() {
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-extrabold text-white">Developer API Keys & Webhooks</h1>
+      <div className="glass-panel p-6 rounded-3xl border border-slate-800 max-w-2xl space-y-4">
+        <label className="block text-xs font-bold text-slate-400 uppercase">Live Secret API Key</label>
+        <div className="flex gap-2">
+          <input type="password" value="bk_live_99201920192019201" readOnly className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-xs font-mono text-slate-300" />
+          <button className="bg-blue-600 text-white text-xs font-bold px-4 rounded-xl">Copy</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   MODULE 14: BILLING VIEW
+   ========================================================================== */
+function BillingView() {
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-extrabold text-white">Subscription Billing & Usage</h1>
+      <div className="glass-panel p-6 rounded-3xl border border-slate-800 max-w-xl space-y-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className="font-bold text-white">Enterprise Tier ($49/mo)</h3>
+            <p className="text-xs text-slate-400">Renews on August 28, 2026</p>
+          </div>
+          <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">Active</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   MODULE 15: SECURITY VIEW
+   ========================================================================== */
+function SecurityView() {
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-extrabold text-white">Security & HIPAA Audit Log</h1>
+      <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-3 max-w-2xl">
+        <div className="flex justify-between items-center text-xs p-3 bg-slate-900 rounded-xl border border-slate-800">
+          <span>256-bit AES HIPAA Shield</span>
+          <span className="text-emerald-400 font-bold">ACTIVE</span>
+        </div>
+        <div className="flex justify-between items-center text-xs p-3 bg-slate-900 rounded-xl border border-slate-800">
+          <span>Two-Factor Authentication (2FA)</span>
+          <span className="text-emerald-400 font-bold">ENABLED</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ==========================================================================
+   MODULE 16: SETTINGS VIEW
+   ========================================================================== */
+function SettingsView() {
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-extrabold text-white">Workspace Configuration</h1>
+      <div className="glass-panel p-6 rounded-3xl border border-slate-800 max-w-2xl space-y-4">
+        <div>
+          <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Company Name</label>
+          <input type="text" defaultValue="Acme Corporation US" className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white" />
+        </div>
+      </div>
     </div>
   );
 }
