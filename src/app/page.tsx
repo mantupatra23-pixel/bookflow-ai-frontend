@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import Link from "next/link";
 import { auth, googleProvider } from "../lib/firebase";
 import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
 import {
@@ -42,34 +41,43 @@ import {
   LogOut,
   HelpCircle,
   Camera,
-  Lock
+  Lock,
+  CheckCircle2,
+  QrCode,
+  Copy,
+  Trash2,
+  Briefcase,
+  SlidersHorizontal,
+  ChevronRight
 } from "lucide-react";
 
 export default function Home() {
-  // Navigation & Page State
-  const [currentView, setCurrentView] = useState<"landing" | "app">("landing");
+  // Navigation State
+  const [currentView, setCurrentView] = useState<"landing" | "onboarding" | "app">("landing");
   const [activeTab, setActiveTab] = useState("Dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showAiFloating, setShowAiFloating] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
+  // Onboarding Wizard State (Steps 1 to 6)
+  const [wizardStep, setWizardStep] = useState(1);
+  const [businessType, setBusinessType] = useState("Consultant");
+  const [gcalConnected, setGcalConnected] = useState(false);
+  const [stripeConnected, setStripeConnected] = useState(false);
+  const [onboardingData, setOnboardingData] = useState({
+    businessName: "Acme Enterprise",
+    timezone: "America/New_York (EST)",
+    meetingDuration: "30 Mins",
+    workingHours: "09:00 AM - 05:00 PM EST"
+  });
+
   // Dynamic Auth User State
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
-  const [userProfile, setUserProfile] = useState<{
-    fullName: string;
-    email: string;
-    photo: string;
-    company: string;
-    workspace: string;
-    timezone: string;
-    plan: string;
-    phone: string;
-    country: string;
-  }>({
-    fullName: "Authenticated User",
-    email: "user@bookflow.ai",
+  const [userProfile, setUserProfile] = useState({
+    fullName: "Mantu Patra",
+    email: "mantu@bookflow.ai",
     photo: "",
     company: "Acme Inc (US)",
     workspace: "Acme Enterprise",
@@ -79,28 +87,12 @@ export default function Home() {
     country: "United States"
   });
 
-  // App Dashboard States
-  const [slots, setSlots] = useState([]);
-  const [slotsLoading, setSlotsLoading] = useState(true);
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const [clientName, setClientName] = useState("");
-  const [clientEmail, setClientEmail] = useState("");
-  const [clientPhone, setClientPhone] = useState("");
-  const [selectedService, setSelectedService] = useState("consultation");
-  const [showStripeModal, setShowStripeModal] = useState(false);
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCvc, setCardCvc] = useState("");
-  const [booked, setBooked] = useState(false);
-  const [bookingResponse, setBookingResponse] = useState<any>(null);
-  const [bookingLoading, setBookingLoading] = useState(false);
+  // Booking Page Modal States
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [qrCodeLink, setQrCodeLink] = useState("");
+  const [showNewPageModal, setShowNewPageModal] = useState(false);
 
-  // Landing Page Interactive States
-  const [activeNiche, setActiveNiche] = useState("coaches");
-  const [billingCycle, setBillingCycle] = useState<"monthly" | "annual">("annual");
-  const [openFaq, setOpenFaq] = useState<number | null>(0);
-
-  // Groq AI Chat Messages
+  // AI Chat Messages
   const [aiChatMessages, setAiChatMessages] = useState([
     { role: "assistant", content: "Hello! I am your Groq AI Copilot. How can I assist with your workspace schedule today?" }
   ]);
@@ -108,7 +100,6 @@ export default function Home() {
 
   const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "https://bookflow-ai-backend.onrender.com";
 
-  // Check Persistent Auth State On Mount
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -119,24 +110,14 @@ export default function Home() {
           email: user.email || "mantu@bookflow.ai",
           photo: user.photoURL || ""
         }));
-        setCurrentView("app");
       } else {
         setIsLoggedIn(false);
         setCurrentView("landing");
       }
       setAuthLoading(false);
     });
-
-    fetch(`${BACKEND_URL}/api/v1/slots?zone=EST`)
-      .then((res) => res.json())
-      .then((data) => {
-        setSlots(data.slots || []);
-        setSlotsLoading(false);
-      })
-      .catch(() => setSlotsLoading(false));
-
     return () => unsubscribe();
-  }, [BACKEND_URL]);
+  }, []);
 
   const handleGoogleAuth = async () => {
     try {
@@ -149,8 +130,10 @@ export default function Home() {
       }));
       setIsLoggedIn(true);
       setShowAuthModal(false);
-      setCurrentView("app");
-      setActiveTab("Dashboard");
+      
+      // Check onboarding state: redirect to Wizard if first time
+      setWizardStep(1);
+      setCurrentView("onboarding");
     } catch (error) {
       console.error("Firebase auth error:", error);
     }
@@ -170,50 +153,6 @@ export default function Home() {
     } else {
       setShowAuthModal(true);
     }
-  };
-
-  const executeBooking = async () => {
-    setBookingLoading(true);
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/v1/bookings/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: "demo-user-id",
-          event_type_id: selectedService,
-          client_name: clientName || "BookFlow Guest",
-          client_email: clientEmail || "guest@bookflow.ai",
-          client_phone: clientPhone || "+1 (555) 019-2834",
-          start_time: selectedSlot,
-          us_timezone_code: "EST"
-        })
-      });
-      const data = await res.json();
-      setBookingResponse(data);
-      setBooked(true);
-      setShowStripeModal(false);
-    } catch (err) {
-      setBooked(true);
-      setShowStripeModal(false);
-    } finally {
-      setBookingLoading(false);
-    }
-  };
-
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim()) return;
-    setAiChatMessages(prev => [...prev, { role: "user", content: chatInput }]);
-    const userMsg = chatInput;
-    setChatInput("");
-    
-    setTimeout(() => {
-      let reply = `Hello ${userProfile.fullName}! I'm processing your schedule optimization via Groq LPU engine.`;
-      if (userMsg.toLowerCase().includes("reschedule")) {
-        reply = "I've checked your calendar availability. I can move your session to tomorrow at 10:00 AM EST.";
-      }
-      setAiChatMessages(prev => [...prev, { role: "assistant", content: reply }]);
-    }, 600);
   };
 
   const navigationItems = [
@@ -236,11 +175,21 @@ export default function Home() {
     { name: "Profile", icon: UserCheck },
   ];
 
-  const faqs = [
-    { q: "How does BookFlow AI eliminate no-shows?", a: "BookFlow AI uses automated speed-to-lead SMS and email workflows under your branded sender ID." },
-    { q: "Is BookFlow AI HIPAA compliant for healthcare?", a: "Yes! Client intake notes are protected using end-to-end 256-bit AES HIPAA encryption shields." },
-    { q: "Can I collect payments directly before booking?", a: "Absolutely. Integrated Stripe escrow checkout allows you to set custom session prices." }
-  ];
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+    setAiChatMessages(prev => [...prev, { role: "user", content: chatInput }]);
+    const userMsg = chatInput;
+    setChatInput("");
+    
+    setTimeout(() => {
+      let reply = `Hello ${userProfile.fullName}! I'm optimizing your workspace calendar via Groq LPU engine.`;
+      if (userMsg.toLowerCase().includes("reschedule")) {
+        reply = "I've checked your calendar availability. I can move your session to tomorrow at 10:00 AM EST.";
+      }
+      setAiChatMessages(prev => [...prev, { role: "assistant", content: reply }]);
+    }, 600);
+  };
 
   if (authLoading) {
     return (
@@ -303,10 +252,9 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* VIEW CONDITION 1: PUBLIC LANDING PAGE (UNAUTHENTICATED VIEW) */}
+      {/* VIEW CONDITION 1: PUBLIC LANDING PAGE (UNAUTHENTICATED) */}
       {currentView === "landing" && (
         <div>
-          {/* Header Navigation */}
           <header className="sticky top-0 z-40 bg-slate-950/70 backdrop-blur-xl border-b border-slate-800/80 px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-extrabold text-white text-lg shadow-lg shadow-blue-600/30">B</div>
@@ -340,7 +288,6 @@ export default function Home() {
             </div>
           </header>
 
-          {/* Hero Section */}
           <section className="pt-24 pb-20 px-6 text-center max-w-5xl mx-auto relative">
             <div className="inline-flex items-center gap-2 bg-slate-900/80 border border-slate-800 text-blue-400 rounded-full px-4 py-1.5 text-xs font-bold mb-8">
               <span className="flex h-2 w-2 rounded-full bg-blue-500 animate-ping" />
@@ -366,85 +313,170 @@ export default function Home() {
                 ⚡ Explore Interactive Dashboard
               </button>
             </div>
-
-            {/* Compliance Badges */}
-            <div className="pt-8 border-t border-slate-800/80 max-w-4xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-6 text-xs text-slate-400 font-bold">
-              <div className="flex items-center justify-center gap-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800/60">
-                <span className="text-emerald-400 text-base">🛡️</span> SOC 2 TYPE II
-              </div>
-              <div className="flex items-center justify-center gap-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800/60">
-                <span className="text-blue-400 text-base">🔒</span> HIPAA COMPLIANT
-              </div>
-              <div className="flex items-center justify-center gap-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800/60">
-                <span className="text-purple-400 text-base">💳</span> PCI-DSS LEVEL 1
-              </div>
-              <div className="flex items-center justify-center gap-2 bg-slate-900/40 p-3 rounded-xl border border-slate-800/60">
-                <span className="text-amber-400 text-base">⚡</span> 99.99% UPTIME
-              </div>
-            </div>
           </section>
 
-          {/* Pricing Section */}
-          <section className="py-24 px-6 max-w-6xl mx-auto text-center border-t border-slate-800/80">
-            <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Transparent SaaS Pricing</span>
-            <h2 className="text-3xl sm:text-5xl font-extrabold text-white mt-2 mb-12">Simple Pricing For Growing Teams</h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
-              <div className="bg-slate-900/60 border border-slate-800 p-8 rounded-3xl relative flex flex-col justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-white mb-2">Starter</h3>
-                  <div className="text-4xl font-extrabold text-white mb-6">$0 <span className="text-xs text-slate-500 font-normal">/ month</span></div>
-                  <ul className="space-y-3 text-xs text-slate-300 mb-8">
-                    <li>✓ 1 Calendar Sync Connection</li>
-                    <li>✓ Unlimited Free Consultation Calls</li>
-                    <li>✓ Groq AI Rescheduling Chatbot</li>
-                  </ul>
-                </div>
-                <button onClick={() => setShowAuthModal(true)} className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl text-xs">
-                  Get Started Free
-                </button>
-              </div>
-
-              <div className="bg-slate-900 border-2 border-blue-500 p-8 rounded-3xl relative flex flex-col justify-between shadow-2xl">
-                <div>
-                  <h3 className="text-xl font-bold text-white mb-2">Professional</h3>
-                  <div className="text-4xl font-extrabold text-white mb-6">$15 <span className="text-xs text-slate-500 font-normal">/ month</span></div>
-                  <ul className="space-y-3 text-xs text-slate-300 mb-8">
-                    <li>✓ Unlimited Calendar Connections</li>
-                    <li>✓ Stripe Escrow Paid Strategy Calls</li>
-                    <li>✓ Free SMS Reminders</li>
-                  </ul>
-                </div>
-                <button onClick={() => setShowAuthModal(true)} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl text-xs">
-                  Start 14-Day Free Trial
-                </button>
-              </div>
-
-              <div className="bg-slate-900/60 border border-slate-800 p-8 rounded-3xl relative flex flex-col justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-white mb-2">Enterprise</h3>
-                  <div className="text-4xl font-extrabold text-white mb-6">$39 <span className="text-xs text-slate-500 font-normal">/ month</span></div>
-                  <ul className="space-y-3 text-xs text-slate-300 mb-8">
-                    <li>✓ Round-Robin Lead Distribution</li>
-                    <li>✓ Unlimited Team Members</li>
-                    <li>✓ Dedicated SLA Support</li>
-                  </ul>
-                </div>
-                <button onClick={() => setShowAuthModal(true)} className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl text-xs">
-                  Contact Sales
-                </button>
-              </div>
-            </div>
-          </section>
-
-          {/* Footer */}
           <footer className="bg-slate-950 border-t border-slate-800/80 py-12 px-6 text-center text-xs text-slate-500">
             © Copyright BookFlow AI 2026. All rights reserved.
           </footer>
         </div>
       )}
 
-      {/* VIEW CONDITION 2: PRIVATE AUTHENTICATED DASHBOARD */}
+      {/* VIEW CONDITION 2: FIRST-TIME SETUP ONBOARDING WIZARD */}
+      {currentView === "onboarding" && (
+        <div className="min-h-screen bg-[#050816] flex items-center justify-center p-6">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-xl w-full relative shadow-2xl space-y-8">
+            {/* Step Progress Bar */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-white text-sm">B</div>
+                <span className="font-extrabold text-white text-sm">Onboarding Wizard</span>
+              </div>
+              <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Step {wizardStep} of 6</span>
+            </div>
+
+            {/* STEP 1: WELCOME */}
+            {wizardStep === 1 && (
+              <div className="space-y-6 text-center">
+                <h2 className="text-3xl font-extrabold text-white">Welcome, {userProfile.fullName}! 👋</h2>
+                <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
+                  Let&apos;s set up your automated AI scheduling workspace in under 60 seconds.
+                </p>
+                <button 
+                  onClick={() => setWizardStep(2)}
+                  className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl text-xs transition-all shadow-lg shadow-blue-600/20"
+                >
+                  Continue Setup →
+                </button>
+              </div>
+            )}
+
+            {/* STEP 2: BUSINESS TYPE */}
+            {wizardStep === 2 && (
+              <div className="space-y-6">
+                <h2 className="text-xl font-extrabold text-white">Select Your Business Type</h2>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  {["Coach", "Consultant", "Agency", "Clinic", "Salon", "Lawyer", "Real Estate", "Other"].map((item) => (
+                    <button
+                      key={item}
+                      onClick={() => setBusinessType(item)}
+                      className={`p-3.5 rounded-xl border text-left font-bold transition-all ${
+                        businessType === item ? "border-blue-500 bg-blue-600/10 text-white" : "border-slate-800 bg-slate-950 text-slate-400"
+                      }`}
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+                <button 
+                  onClick={() => setWizardStep(3)}
+                  className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl text-xs"
+                >
+                  Next: Calendar Integration →
+                </button>
+              </div>
+            )}
+
+            {/* STEP 3: GOOGLE CALENDAR */}
+            {wizardStep === 3 && (
+              <div className="space-y-6 text-center">
+                <h2 className="text-xl font-extrabold text-white">Connect Google Calendar</h2>
+                <p className="text-xs text-slate-400">Sync your calendar slots in real-time to avoid double booking.</p>
+                <button 
+                  onClick={() => setGcalConnected(true)}
+                  className={`w-full p-4 rounded-xl border font-bold text-xs flex items-center justify-center gap-3 ${
+                    gcalConnected ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" : "border-slate-800 bg-slate-950 text-white"
+                  }`}
+                >
+                  <CalendarIcon className="w-4 h-4 text-blue-400" />
+                  <span>{gcalConnected ? "✓ Google Calendar Connected" : "One-Click Connect Google Calendar"}</span>
+                </button>
+                <button 
+                  onClick={() => setWizardStep(4)}
+                  className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl text-xs"
+                >
+                  Next: Connect Stripe →
+                </button>
+              </div>
+            )}
+
+            {/* STEP 4: STRIPE CONNECT */}
+            {wizardStep === 4 && (
+              <div className="space-y-6 text-center">
+                <h2 className="text-xl font-extrabold text-white">Connect Stripe Escrow</h2>
+                <p className="text-xs text-slate-400">Collect session deposits and $150 strategy call payments automatically.</p>
+                <button 
+                  onClick={() => setStripeConnected(true)}
+                  className={`w-full p-4 rounded-xl border font-bold text-xs flex items-center justify-center gap-3 ${
+                    stripeConnected ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" : "border-slate-800 bg-slate-950 text-white"
+                  }`}
+                >
+                  <CreditCard className="w-4 h-4 text-purple-400" />
+                  <span>{stripeConnected ? "✓ Stripe Escrow Connected" : "Connect Stripe Account"}</span>
+                </button>
+                <button 
+                  onClick={() => setWizardStep(5)}
+                  className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl text-xs"
+                >
+                  Next: Workspace Info →
+                </button>
+              </div>
+            )}
+
+            {/* STEP 5: BUSINESS INFO */}
+            {wizardStep === 5 && (
+              <div className="space-y-4">
+                <h2 className="text-xl font-extrabold text-white">Business Information</h2>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Business Name</label>
+                  <input 
+                    type="text" 
+                    value={onboardingData.businessName}
+                    onChange={(e) => setOnboardingData({ ...onboardingData, businessName: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Timezone</label>
+                  <input 
+                    type="text" 
+                    value={onboardingData.timezone}
+                    onChange={(e) => setOnboardingData({ ...onboardingData, timezone: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white" 
+                  />
+                </div>
+                <button 
+                  onClick={() => setWizardStep(6)}
+                  className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3.5 rounded-xl text-xs mt-4"
+                >
+                  Next: Generate Booking Page →
+                </button>
+              </div>
+            )}
+
+            {/* STEP 6: GENERATE BOOKING PAGE */}
+            {wizardStep === 6 && (
+              <div className="space-y-6 text-center">
+                <h2 className="text-2xl font-extrabold text-white">🎉 Setup Complete!</h2>
+                <p className="text-xs text-slate-400">Your custom AI booking page is live and connected to Groq LPU.</p>
+                <div className="p-4 bg-slate-950 border border-slate-800 rounded-2xl text-xs font-mono text-blue-400">
+                  https://bookflow.ai/{userProfile.fullName.toLowerCase().replace(/\s+/g, '')}/consultation
+                </div>
+                <button 
+                  onClick={() => {
+                    setCurrentView("app");
+                    setActiveTab("Dashboard");
+                  }}
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-4 rounded-xl text-xs shadow-xl shadow-blue-600/20"
+                >
+                  Launch App Dashboard 🚀
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* VIEW CONDITION 3: PRIVATE AUTHENTICATED DASHBOARD WITH ALL PAGES */}
       {currentView === "app" && isLoggedIn && (
         <div className="flex h-screen bg-[#050816] text-slate-100 overflow-hidden font-sans">
           
@@ -485,10 +517,10 @@ export default function Home() {
               <button className="w-full bg-slate-900/80 border border-slate-800/80 rounded-xl p-2.5 flex items-center justify-between hover:border-slate-700 transition-all text-left">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-6 h-6 rounded-lg bg-blue-500/20 text-blue-400 border border-blue-500/30 flex items-center justify-center font-bold text-xs">
-                    {userProfile.company.substring(0, 2).toUpperCase()}
+                    {onboardingData.businessName.substring(0, 2).toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs font-bold text-white truncate">{userProfile.company}</p>
+                    <p className="text-xs font-bold text-white truncate">{onboardingData.businessName}</p>
                     <p className="text-[10px] text-slate-400 truncate">{userProfile.plan}</p>
                   </div>
                 </div>
@@ -517,12 +549,6 @@ export default function Home() {
                   >
                     <Icon className={`w-4 h-4 ${isActive ? "text-blue-400" : "text-slate-400"}`} />
                     <span>{item.name}</span>
-                    {isActive && (
-                      <motion.div 
-                        layoutId="activeTabIndicator"
-                        className="absolute right-2 w-1.5 h-1.5 rounded-full bg-blue-500 shadow-sm shadow-blue-500" 
-                      />
-                    )}
                   </button>
                 );
               })}
@@ -631,7 +657,7 @@ export default function Home() {
               </div>
             </header>
 
-            {/* MAIN DASHBOARD MODULE BODY */}
+            {/* DYNAMIC DASHBOARD PAGES ROUTER */}
             <main className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-8">
               <AnimatePresence mode="wait">
                 <motion.div
@@ -642,13 +668,22 @@ export default function Home() {
                   transition={{ duration: 0.2 }}
                 >
                   {activeTab === "Dashboard" && <DashboardView user={userProfile} setActiveTab={setActiveTab} />}
+                  {activeTab === "Calendar" && <CalendarView />}
+                  {activeTab === "Appointments" && <AppointmentsView />}
+                  {activeTab === "Booking Pages" && <BookingPagesView setShowQrModal={setShowQrModal} setQrCodeLink={setQrCodeLink} />}
+                  {activeTab === "Customers" && <CustomersView />}
+                  {activeTab === "Payments" && <PaymentsView />}
+                  {activeTab === "AI Assistant" && <AiAssistantView user={userProfile} messages={aiChatMessages} onSend={handleSendMessage} input={chatInput} setInput={setChatInput} />}
+                  {activeTab === "SMS & Email" && <SmsEmailView />}
+                  {activeTab === "Availability" && <AvailabilityView />}
+                  {activeTab === "Team" && <TeamView />}
+                  {activeTab === "Analytics" && <AnalyticsView />}
+                  {activeTab === "Integrations" && <IntegrationsView />}
+                  {activeTab === "API & Webhooks" && <ApiWebhooksView />}
+                  {activeTab === "Billing" && <BillingView />}
+                  {activeTab === "Security" && <SecurityView />}
+                  {activeTab === "Settings" && <SettingsView user={userProfile} />}
                   {activeTab === "Profile" && <ProfileView user={userProfile} setUserProfile={setUserProfile} handleLogout={handleLogout} />}
-                  {activeTab !== "Dashboard" && activeTab !== "Profile" && (
-                    <div className="glass-panel p-8 rounded-3xl border border-slate-800">
-                      <h1 className="text-2xl font-extrabold text-white mb-2">{activeTab}</h1>
-                      <p className="text-xs text-slate-400">Authenticated workspace telemetry for {userProfile.fullName}.</p>
-                    </div>
-                  )}
                 </motion.div>
               </AnimatePresence>
             </main>
@@ -656,11 +691,74 @@ export default function Home() {
         </div>
       )}
 
+      {/* QR CODE MODAL FOR BOOKING PAGES */}
+      {showQrModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full text-center space-y-4">
+            <h3 className="text-lg font-bold text-white">Booking Page QR Code</h3>
+            <div className="bg-white p-4 rounded-2xl w-48 h-48 mx-auto flex items-center justify-center">
+              <QrCode className="w-36 h-36 text-slate-900" />
+            </div>
+            <p className="text-xs font-mono text-blue-400 truncate">{qrCodeLink}</p>
+            <button onClick={() => setShowQrModal(false)} className="w-full bg-slate-800 text-white font-bold py-2.5 rounded-xl text-xs">
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* FLOATING AI COPILOT DRAWER */}
+      {showAiFloating && (
+        <motion.div 
+          initial={{ opacity: 0, x: 300 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: 300 }}
+          className="fixed bottom-6 right-6 w-96 h-[520px] bg-[#090d20]/95 backdrop-blur-2xl border border-slate-800 rounded-3xl shadow-2xl z-50 flex flex-col overflow-hidden"
+        >
+          <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center justify-between text-white">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4" />
+              <h3 className="font-bold text-xs tracking-wide uppercase">BookFlow AI Copilot</h3>
+            </div>
+            <button onClick={() => setShowAiFloating(false)} className="text-white/80 hover:text-white">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-950/80 text-xs">
+            {aiChatMessages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div className={`max-w-[85%] p-3 rounded-2xl ${msg.role === "user" ? "bg-blue-600 text-white" : "bg-slate-900 border border-slate-800 text-slate-200"}`}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <form onSubmit={handleSendMessage} className="p-3 bg-slate-900 border-t border-slate-800 flex gap-2">
+            <input 
+              type="text" 
+              placeholder="Ask Groq AI to reschedule, query stats..."
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+            />
+            <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-xl">
+              <Send className="w-4 h-4" />
+            </button>
+          </form>
+        </motion.div>
+      )}
+
     </div>
   );
 }
 
-/* DASHBOARD VIEW */
+/* ==========================================================================
+   FRONTEND DASHBOARD PAGES
+   ========================================================================== */
+
+/* 1. DASHBOARD PAGE */
 function DashboardView({ user, setActiveTab }: any) {
   return (
     <div className="space-y-8">
@@ -679,25 +777,23 @@ function DashboardView({ user, setActiveTab }: any) {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button 
-              onClick={() => setActiveTab("Booking Pages")}
-              className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-5 py-3 rounded-xl transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" /> Create Booking Page
-            </button>
-          </div>
+          <button 
+            onClick={() => setActiveTab("Booking Pages")}
+            className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-5 py-3 rounded-xl transition-all shadow-lg shadow-blue-600/20 flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" /> Create Booking Page
+          </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {[
-          { title: "Today's Revenue", val: "$1,850.00", change: "+32%", positive: true },
-          { title: "Today's Bookings", val: "12", change: "+18%", positive: true },
-          { title: "Upcoming Meetings", val: "48", change: "+8%", positive: true },
-          { title: "Pending Payments", val: "$450.00", change: "-2%", positive: false },
-          { title: "SMS Sent", val: "142", change: "+100%", positive: true },
-          { title: "Conversion Rate", val: "42.8%", change: "+5.4%", positive: true }
+          { title: "Today's Revenue", val: "$1,850.00" },
+          { title: "Today's Bookings", val: "12" },
+          { title: "Upcoming Meetings", val: "48" },
+          { title: "Pending Payments", val: "$450.00" },
+          { title: "SMS Sent", val: "142" },
+          { title: "Conversion Rate", val: "42.8%" }
         ].map((card, i) => (
           <div key={i} className="glass-panel p-5 rounded-2xl">
             <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{card.title}</p>
@@ -709,30 +805,201 @@ function DashboardView({ user, setActiveTab }: any) {
   );
 }
 
-/* PROFILE VIEW */
+/* 2. CALENDAR PAGE */
+function CalendarView() {
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-extrabold text-white">Calendar Engine</h1>
+          <p className="text-xs text-slate-400">Month, Week, Day and Agenda view with drag and drop</p>
+        </div>
+        <div className="flex gap-2 bg-slate-900 p-1 border border-slate-800 rounded-xl text-xs font-bold">
+          <button className="px-3 py-1.5 rounded-lg bg-blue-600 text-white">Month</button>
+          <button className="px-3 py-1.5 rounded-lg text-slate-400">Week</button>
+          <button className="px-3 py-1.5 rounded-lg text-slate-400">Day</button>
+        </div>
+      </div>
+
+      <div className="glass-panel p-6 rounded-3xl border border-slate-800">
+        <div className="grid grid-cols-7 gap-2 text-center text-xs font-bold text-slate-400 mb-4">
+          <span>SUN</span><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span><span>SAT</span>
+        </div>
+        <div className="grid grid-cols-7 gap-2 text-xs">
+          {[...Array(31)].map((_, i) => (
+            <div key={i} className={`min-h-[80px] p-2 rounded-2xl border ${i + 1 === 28 ? "border-blue-500 bg-blue-600/10" : "border-slate-800 bg-slate-950/40"}`}>
+              <span className="font-bold text-slate-400">{i + 1}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* 3. APPOINTMENTS PAGE */
+function AppointmentsView() {
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-extrabold text-white">Appointments Database</h1>
+          <p className="text-xs text-slate-400">Upcoming, Completed, Cancelled and Rescheduled meetings</p>
+        </div>
+        <button className="bg-slate-900 border border-slate-800 text-xs font-bold px-4 py-2 rounded-xl text-slate-300 flex items-center gap-2">
+          <Download className="w-4 h-4" /> Export CSV
+        </button>
+      </div>
+
+      <div className="glass-panel rounded-3xl border border-slate-800 p-4">
+        <table className="w-full text-left text-xs">
+          <thead className="bg-slate-900/80 text-slate-400 font-bold uppercase border-b border-slate-800">
+            <tr>
+              <th className="p-4">Customer</th>
+              <th className="p-4">Event Type</th>
+              <th className="p-4">Date</th>
+              <th className="p-4">Status</th>
+              <th className="p-4 text-right">Amount</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-800/60 text-slate-300">
+            {[
+              { name: "John Doe", type: "45 Min Paid Strategy", date: "July 28, 2026", status: "CONFIRMED", amount: "$150.00" },
+              { name: "Sarah Connor", type: "15 Min Consultation", date: "July 29, 2026", status: "COMPLETED", amount: "Free" }
+            ].map((row, i) => (
+              <tr key={i} className="hover:bg-slate-900/50">
+                <td className="p-4 font-bold text-white">{row.name}</td>
+                <td className="p-4">{row.type}</td>
+                <td className="p-4">{row.date}</td>
+                <td className="p-4"><span className="px-2 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400">{row.status}</span></td>
+                <td className="p-4 text-right font-bold text-white">{row.amount}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* 4. BOOKING PAGES */
+function BookingPagesView({ setShowQrModal, setQrCodeLink }: any) {
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-extrabold text-white">Booking Pages</h1>
+          <p className="text-xs text-slate-400">List, edit, share, and generate QR codes for booking links</p>
+        </div>
+        <button className="bg-blue-600 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2">
+          <Plus className="w-4 h-4" /> Create New Page
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {[
+          { title: "45-Min Executive Strategy Call", price: "$150 USD", link: "https://bookflow.ai/mantu/strategy" },
+          { title: "15-Min Free Consultation Call", price: "Free", link: "https://bookflow.ai/mantu/consult" }
+        ].map((card, i) => (
+          <div key={i} className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-4">
+            <h3 className="font-bold text-white text-base">{card.title}</h3>
+            <p className="text-xs font-mono text-blue-400 truncate">{card.link}</p>
+            <div className="flex gap-2 pt-2 border-t border-slate-800">
+              <button onClick={() => { setQrCodeLink(card.link); setShowQrModal(true); }} className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white">
+                <QrCode className="w-4 h-4" />
+              </button>
+              <button className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white">
+                <Copy className="w-4 h-4" />
+              </button>
+              <button className="p-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white">
+                <Share2 className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* 5. CUSTOMERS PAGE */
+function CustomersView() {
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-extrabold text-white">Customers CRM</h1>
+      <div className="glass-panel p-6 rounded-3xl border border-slate-800 text-xs text-slate-300">
+        Customer LTV profiles, notes, and booking histories.
+      </div>
+    </div>
+  );
+}
+
+/* 6. PAYMENTS PAGE */
+function PaymentsView() {
+  return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-extrabold text-white">Payments & Escrow</h1>
+      <div className="glass-panel p-6 rounded-3xl border border-slate-800 text-xs text-slate-300">
+        Stripe transactions, refunds, and payout balances.
+      </div>
+    </div>
+  );
+}
+
+/* 7. AI ASSISTANT PAGE */
+function AiAssistantView({ user, messages, onSend, input, setInput }: any) {
+  return (
+    <div className="h-[calc(100vh-140px)] glass-panel rounded-3xl border border-slate-800 flex flex-col overflow-hidden">
+      <div className="p-4 bg-slate-900 border-b border-slate-800 font-bold text-xs text-white">Groq AI Copilot Console</div>
+      <div className="flex-1 p-6 overflow-y-auto space-y-3 text-xs">
+        {messages.map((m: any, i: number) => (
+          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div className={`p-3 rounded-xl max-w-[80%] ${m.role === "user" ? "bg-blue-600 text-white" : "bg-slate-900 border border-slate-800 text-slate-200"}`}>{m.content}</div>
+          </div>
+        ))}
+      </div>
+      <form onSubmit={onSend} className="p-3 bg-slate-900 border-t border-slate-800 flex gap-2">
+        <input type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask AI..." className="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-2 text-xs text-white" />
+        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold">Send</button>
+      </form>
+    </div>
+  );
+}
+
+/* 8. SMS & EMAIL */
+function SmsEmailView() { return <div className="glass-panel p-6 rounded-3xl border border-slate-800 text-xs text-white">SMS & Email Speed-To-Lead Automation</div>; }
+/* 9. AVAILABILITY */
+function AvailabilityView() { return <div className="glass-panel p-6 rounded-3xl border border-slate-800 text-xs text-white">Working Hours & Buffer Settings</div>; }
+/* 10. TEAM */
+function TeamView() { return <div className="glass-panel p-6 rounded-3xl border border-slate-800 text-xs text-white">Team Members & Round-Robin Routing</div>; }
+/* 11. ANALYTICS */
+function AnalyticsView() { return <div className="glass-panel p-6 rounded-3xl border border-slate-800 text-xs text-white">Analytics, Traffic & Conversion Heatmaps</div>; }
+/* 12. INTEGRATIONS */
+function IntegrationsView() { return <div className="glass-panel p-6 rounded-3xl border border-slate-800 text-xs text-white">Integrations Matrix (Google Calendar, Zoom, Stripe, Twilio)</div>; }
+/* 13. API & WEBHOOKS */
+function ApiWebhooksView() { return <div className="glass-panel p-6 rounded-3xl border border-slate-800 text-xs text-white">API Keys & Webhooks Logs</div>; }
+/* 14. BILLING */
+function BillingView() { return <div className="glass-panel p-6 rounded-3xl border border-slate-800 text-xs text-white">Subscription Plan & Billing History</div>; }
+/* 15. SECURITY */
+function SecurityView() { return <div className="glass-panel p-6 rounded-3xl border border-slate-800 text-xs text-white">2FA & HIPAA Encryption Audit Logs</div>; }
+/* 16. SETTINGS */
+function SettingsView({ user }: any) { return <div className="glass-panel p-6 rounded-3xl border border-slate-800 text-xs text-white">Workspace Branding & Domain Settings</div>; }
+
+/* 17. PROFILE PAGE */
 function ProfileView({ user, setUserProfile, handleLogout }: any) {
   return (
     <div className="max-w-4xl space-y-8">
-      <div>
-        <h1 className="text-2xl font-extrabold text-white">User Profile Settings</h1>
-        <p className="text-xs text-slate-400">Manage account details for {user.fullName}</p>
-      </div>
-
+      <h1 className="text-2xl font-extrabold text-white">User Profile Settings</h1>
       <div className="glass-panel p-8 rounded-3xl border border-slate-800 space-y-6">
         <div className="flex items-center gap-6 pb-6 border-b border-slate-800">
-          {user.photo ? (
-            <img src={user.photo} className="w-20 h-20 rounded-full border-2 border-blue-500" alt="avatar" />
-          ) : (
-            <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-extrabold text-2xl">
-              {user.fullName.substring(0, 2).toUpperCase()}
-            </div>
-          )}
+          <div className="w-20 h-20 rounded-full bg-blue-600 flex items-center justify-center text-white font-extrabold text-2xl">
+            {user.fullName.substring(0, 2).toUpperCase()}
+          </div>
           <div>
             <h3 className="font-bold text-white text-base">{user.fullName}</h3>
             <p className="text-xs text-slate-400">{user.email}</p>
           </div>
         </div>
-
         <button onClick={handleLogout} className="bg-rose-500/10 text-rose-400 font-bold text-xs px-5 py-2.5 rounded-xl border border-rose-500/20">
           Logout Account
         </button>
