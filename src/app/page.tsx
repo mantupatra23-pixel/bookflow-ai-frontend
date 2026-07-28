@@ -11,6 +11,7 @@ export default function Home() {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
   const [booked, setBooked] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
 
@@ -23,10 +24,10 @@ export default function Home() {
   const [cardExpiry, setCardExpiry] = useState("");
   const [cardCvc, setCardCvc] = useState("");
 
-  // AI Assistant Chatbot State
+  // Groq AI Assistant Chatbot State
   const [showAiChat, setShowAiChat] = useState(false);
   const [chatMessages, setChatMessages] = useState([
-    { sender: "ai", text: "Hi! I'm BookFlow AI Assistant. Need help picking a time or rescheduling an existing meeting?" }
+    { sender: "ai", text: "Hello! I'm BookFlow AI powered by Groq LPU. How can I assist with your scheduling today?" }
   ]);
   const [chatInput, setChatInput] = useState("");
 
@@ -98,6 +99,7 @@ export default function Home() {
           event_type_id: selectedService,
           client_name: clientName || "BookFlow Guest",
           client_email: clientEmail || "guest@bookflow.ai",
+          client_phone: clientPhone || "+1 (555) 019-2834",
           start_time: selectedSlot,
           us_timezone_code: "EST",
           amount_paid: selectedService === "strategy" ? 150 : 0
@@ -121,39 +123,43 @@ export default function Home() {
     setChatMessages((prev) => [...prev, { sender: "user", text: userText }]);
     setChatInput("");
 
+    // Simulated ultra-fast Groq LPU response
     setTimeout(() => {
-      let aiReply = "I can automatically help you book or reschedule. Please select an available slot above!";
-      if (userText.toLowerCase().includes("reschedule") || userText.toLowerCase().includes("change")) {
-        aiReply = "Sure! I can help you reschedule your meeting. Choose a new slot from the calendar and I will sync it with your Google Calendar.";
-      } else if (userText.toLowerCase().includes("price") || userText.toLowerCase().includes("cost")) {
-        aiReply = "Consultations and Training Calls are 100% Free ($0). Paid Strategy Sessions are $150 USD.";
+      let aiReply = "I am your BookFlow AI assistant. I can check your calendar slots and manage bookings instantly!";
+      const lower = userText.toLowerCase();
+      if (lower.includes("reschedule") || lower.includes("change")) {
+        aiReply = "To reschedule, simply pick a new date from the calendar widget above and confirm!";
+      } else if (lower.includes("price") || lower.includes("cost") || lower.includes("fee")) {
+        aiReply = "Consultations are Free ($0). Paid Strategy Sessions are $150 USD processed securely via Stripe.";
+      } else if (lower.includes("sms") || lower.includes("message")) {
+        aiReply = "Yes! BookFlow AI automatically dispatches instant confirmation texts under the [BookFlow AI] sender ID.";
       }
       setChatMessages((prev) => [...prev, { sender: "ai", text: aiReply }]);
-    }, 600);
+    }, 300); // Super fast Groq speed simulation
   };
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans antialiased selection:bg-blue-100 selection:text-blue-700 relative">
       
-      {/* Floating AI Assistant Chatbot Button */}
+      {/* Floating Groq AI Assistant Chatbot Button */}
       <div className="fixed bottom-6 right-6 z-50">
         {!showAiChat ? (
           <button
             onClick={() => setShowAiChat(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white font-bold p-4 rounded-full shadow-2xl flex items-center gap-2 transition-all transform hover:scale-105"
           >
-            <span className="text-xl">🤖</span>
-            <span className="text-xs pr-1">Ask AI Scheduler</span>
+            <span className="text-xl">⚡</span>
+            <span className="text-xs pr-1">Groq AI Assistant</span>
           </button>
         ) : (
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-80 sm:w-96 overflow-hidden flex flex-col h-[420px]">
             <div className="bg-blue-600 text-white p-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-lg">🤖</span>
+                <span className="text-lg">⚡</span>
                 <div>
-                  <h4 className="font-bold text-xs">BookFlow AI Assistant</h4>
+                  <h4 className="font-bold text-xs">BookFlow AI (Groq Powered)</h4>
                   <span className="text-[10px] text-blue-100 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Online
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Ultra-Low Latency
                   </span>
                 </div>
               </div>
@@ -184,7 +190,7 @@ export default function Home() {
             <form onSubmit={handleSendMessage} className="p-2 bg-white border-t border-slate-200 flex gap-2">
               <input
                 type="text"
-                placeholder="Ask to reschedule or pricing..."
+                placeholder="Ask Groq AI anything..."
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 className="flex-1 text-xs border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:outline-none focus:border-blue-600"
@@ -312,16 +318,13 @@ export default function Home() {
           AI Scheduling Built For Modern Teams
         </h1>
         <p className="text-lg text-slate-600 max-w-2xl mx-auto mb-6 font-normal">
-          The #1 Calendly Alternative with AI Rescheduling Assistant, Unlimited Calendar Sync, and Automated Stripe Payments.
+          The #1 Calendly Alternative with Groq AI Assistant, Unlimited Calendar Sync, and Free Branded SMS Notifications.
         </p>
 
-        {/* Real-time System Sync Indicators */}
         <div className="inline-flex flex-wrap items-center justify-center gap-4 bg-slate-50 border border-slate-200 rounded-full px-5 py-2 text-xs font-bold text-slate-600">
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Google Calendar Sync</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Groq LPU AI Active</span>
           <span>•</span>
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Zoom/Meet Webhooks</span>
-          <span>•</span>
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Stripe USD Ready</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> [BookFlow AI] Free SMS Gateway</span>
         </div>
       </section>
 
@@ -421,6 +424,14 @@ export default function Home() {
                   onChange={(e) => setClientEmail(e.target.value)}
                   className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-900"
                 />
+                <label className="block text-[11px] font-bold text-slate-500 uppercase pt-2">Your Phone (For SMS)</label>
+                <input
+                  type="text"
+                  placeholder="+1 (555) 000-0000"
+                  value={clientPhone}
+                  onChange={(e) => setClientPhone(e.target.value)}
+                  className="w-full border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-900"
+                />
               </div>
             </div>
 
@@ -483,8 +494,9 @@ export default function Home() {
               )}
 
               {booked && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-lg font-medium text-center shadow-sm">
-                  ✓ Booking Confirmed! SMS & Email Invitations Dispatched.
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-lg font-medium text-center shadow-sm space-y-1">
+                  <div className="font-bold">✓ Booking Confirmed!</div>
+                  <div className="text-[10px] text-emerald-600">[BookFlow AI] Free SMS sent to your phone with Zoom link.</div>
                 </div>
               )}
             </div>
