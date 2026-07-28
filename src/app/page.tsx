@@ -147,7 +147,6 @@ export default function Home() {
           </button>
         ) : (
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-80 sm:w-96 overflow-hidden flex flex-col h-[420px]">
-            {/* Chat Header */}
             <div className="bg-blue-600 text-white p-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-lg">🤖</span>
@@ -163,7 +162,6 @@ export default function Home() {
               </button>
             </div>
 
-            {/* Chat Body */}
             <div className="flex-1 p-3 overflow-y-auto space-y-3 bg-slate-50 text-xs">
               {chatMessages.map((msg, idx) => (
                 <div
@@ -183,7 +181,6 @@ export default function Home() {
               ))}
             </div>
 
-            {/* Chat Input */}
             <form onSubmit={handleSendMessage} className="p-2 bg-white border-t border-slate-200 flex gap-2">
               <input
                 type="text"
@@ -310,17 +307,26 @@ export default function Home() {
       </header>
 
       {/* Hero */}
-      <section className="pt-16 pb-12 px-6 text-center max-w-4xl mx-auto">
+      <section className="pt-16 pb-8 px-6 text-center max-w-4xl mx-auto">
         <h1 className="text-4xl sm:text-6xl font-extrabold text-slate-900 tracking-tight mb-4">
           AI Scheduling Built For Modern Teams
         </h1>
-        <p className="text-lg text-slate-600 max-w-2xl mx-auto mb-8 font-normal">
+        <p className="text-lg text-slate-600 max-w-2xl mx-auto mb-6 font-normal">
           The #1 Calendly Alternative with AI Rescheduling Assistant, Unlimited Calendar Sync, and Automated Stripe Payments.
         </p>
+
+        {/* Real-time System Sync Indicators */}
+        <div className="inline-flex flex-wrap items-center justify-center gap-4 bg-slate-50 border border-slate-200 rounded-full px-5 py-2 text-xs font-bold text-slate-600">
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Google Calendar Sync</span>
+          <span>•</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Zoom/Meet Webhooks</span>
+          <span>•</span>
+          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> Stripe USD Ready</span>
+        </div>
       </section>
 
       {/* Multi-Appointment Service Selection Widget */}
-      <section className="max-w-5xl mx-auto px-6 mb-20">
+      <section className="max-w-5xl mx-auto px-6 mb-20 pt-8">
         <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden p-6 sm:p-8">
           
           <h3 className="text-base font-bold text-slate-900 mb-4 uppercase tracking-wider">
@@ -477,8 +483,8 @@ export default function Home() {
               )}
 
               {booked && (
-                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-lg font-medium text-center">
-                  ✓ Appointment Confirmed in FastAPI Database!
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-lg font-medium text-center shadow-sm">
+                  ✓ Booking Confirmed! SMS & Email Invitations Dispatched.
                 </div>
               )}
             </div>
