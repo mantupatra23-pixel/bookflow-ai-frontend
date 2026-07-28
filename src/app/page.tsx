@@ -13,17 +13,14 @@ export default function Home() {
   const [booked, setBooked] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
 
+  // Appointment Type Selection
+  const [selectedService, setSelectedService] = useState("consultation");
+  
   // Paid Meeting & Stripe States
-  const [eventType, setEventType] = useState<"free" | "paid">("free");
   const [showStripeModal, setShowStripeModal] = useState(false);
   const [cardNumber, setCardNumber] = useState("");
   const [cardExpiry, setCardExpiry] = useState("");
   const [cardCvc, setCardCvc] = useState("");
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
-
-  // Feature Tabs State
-  const [activeFeature, setActiveFeature] = useState("calendar");
-  const [activeMoreFeature, setActiveMoreFeature] = useState("workflows");
 
   // Auth States
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -72,28 +69,15 @@ export default function Home() {
     }
   };
 
-  const handleMicrosoftAuth = () => {
-    setIsLoggedIn(true);
-    setUserProfile({ email: "mantupatra@outlook.com", name: "Mantu Patra (Microsoft)" });
-    setShowAuthModal(false);
-  };
-
   const handleLogout = async () => {
     await signOut(auth);
     setIsLoggedIn(false);
     setUserProfile(null);
   };
 
-  const handleAuthSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoggedIn(true);
-    setUserProfile({ email: authEmail || "mantu@bookflow.ai" });
-    setShowAuthModal(false);
-  };
-
   const handleBookingInitiate = () => {
     if (!selectedSlot) return;
-    if (eventType === "paid") {
+    if (selectedService === "strategy") {
       setShowStripeModal(true);
     } else {
       executeBooking();
@@ -108,12 +92,12 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: "demo-user-id",
-          event_type_id: eventType === "paid" ? "paid-strategy-session" : "free-discovery-call",
+          event_type_id: selectedService,
           client_name: clientName || "BookFlow Guest",
           client_email: clientEmail || "guest@bookflow.ai",
           start_time: selectedSlot,
           us_timezone_code: "EST",
-          amount_paid: eventType === "paid" ? 150 : 0
+          amount_paid: selectedService === "strategy" ? 150 : 0
         })
       });
       setBooked(true);
@@ -126,14 +110,9 @@ export default function Home() {
     }
   };
 
-  const handleStripePayment = (e: React.FormEvent) => {
-    e.preventDefault();
-    setPaymentSuccess(true);
-    executeBooking();
-  };
-
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans antialiased selection:bg-blue-100 selection:text-blue-700">
+      
       {/* Stripe Payment Modal */}
       {showStripeModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
@@ -158,7 +137,7 @@ export default function Home() {
               1-on-1 Paid Strategy Session (45 min) via Zoom/Google Meet.
             </p>
 
-            <form onSubmit={handleStripePayment} className="space-y-4">
+            <form onSubmit={(e) => { e.preventDefault(); executeBooking(); }} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Card Number
@@ -202,104 +181,12 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={bookingLoading}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg text-sm transition-all shadow-md flex items-center justify-center gap-2"
-                >
-                  {bookingLoading ? "Processing Payment..." : "🔒 Pay $150 & Confirm Booking"}
-                </button>
-              </div>
-
-              <div className="text-center text-[11px] text-slate-400 pt-2 flex items-center justify-center gap-2">
-                <span>⚡ Powered by Stripe</span>
-                <span>•</span>
-                <span>256-bit SSL Encryption</span>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Auth Modal */}
-      {showAuthModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 relative">
-            <button
-              onClick={() => setShowAuthModal(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 font-bold text-lg"
-            >
-              ✕
-            </button>
-
-            <h3 className="text-2xl font-bold text-slate-900 mb-1">
-              {authMode === "login" ? "Welcome back to BookFlow" : "Create your account"}
-            </h3>
-            <p className="text-xs text-slate-500 mb-6">
-              {authMode === "login" ? "Sign in to manage your meetings and schedules." : "Start your 14-day unlimited free trial."}
-            </p>
-
-            <div className="space-y-3 mb-6">
-              <button
-                onClick={handleGoogleAuth}
-                className="w-full flex items-center justify-center gap-3 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold py-2.5 px-4 rounded-lg text-sm transition-all shadow-sm"
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-                </svg>
-                Continue with Google
-              </button>
-
-              <button
-                onClick={handleMicrosoftAuth}
-                className="w-full flex items-center justify-center gap-3 bg-slate-900 hover:bg-black text-white font-semibold py-2.5 px-4 rounded-lg text-sm transition-all shadow-sm"
-              >
-                <svg className="w-4 h-4 fill-current" viewBox="0 0 23 23">
-                  <path d="M0 0h11v11H0zM12 0h11v11H12zM0 12h11v11H0zM12 12h11v11H12z"/>
-                </svg>
-                Continue with Microsoft
-              </button>
-            </div>
-
-            <div className="relative flex py-2 items-center mb-4">
-              <div className="flex-grow border-t border-slate-200"></div>
-              <span className="flex-shrink mx-4 text-xs font-bold text-slate-400 uppercase">Or Email</span>
-              <div className="flex-grow border-t border-slate-200"></div>
-            </div>
-
-            <form onSubmit={handleAuthSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Email</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="you@company.com"
-                  value={authEmail}
-                  onChange={(e) => setAuthEmail(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-blue-600"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Password</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={authPassword}
-                  onChange={(e) => setAuthPassword(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-blue-600"
-                />
-              </div>
-
               <button
                 type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg text-sm transition-all shadow-md"
+                disabled={bookingLoading}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg text-sm transition-all shadow-md mt-4"
               >
-                {authMode === "login" ? "Log In" : "Get Started"}
+                {bookingLoading ? "Processing Payment..." : "🔒 Pay $150 & Confirm Booking"}
               </button>
             </form>
           </div>
@@ -310,7 +197,7 @@ export default function Home() {
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-100 px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white text-lg">B</div>
-          <span className="text-2xl font-extrabold text-blue-600 tracking-tight">BookFlow</span>
+          <span className="text-2xl font-extrabold text-blue-600 tracking-tight">BookFlow AI</span>
         </div>
         
         <div className="flex items-center gap-4">
@@ -320,106 +207,88 @@ export default function Home() {
                 {userProfile?.photo && <img src={userProfile.photo} className="w-4 h-4 rounded-full" alt="avatar" />}
                 👤 {userProfile?.name || userProfile?.email}
               </span>
-              <button
-                onClick={handleLogout}
-                className="text-xs font-semibold text-rose-600 hover:underline"
-              >
+              <button onClick={handleLogout} className="text-xs font-semibold text-rose-600 hover:underline">
                 Log Out
               </button>
             </div>
           ) : (
-            <>
-              <button
-                onClick={() => { setAuthMode("login"); setShowAuthModal(true); }}
-                className="text-sm font-semibold text-slate-700 hover:text-blue-600 px-4 py-2 rounded-lg border border-slate-200"
-              >
-                Log In
-              </button>
-              <button
-                onClick={() => { setAuthMode("signup"); setShowAuthModal(true); }}
-                className="text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg transition-all shadow-md shadow-blue-600/20"
-              >
-                Get started for free
-              </button>
-            </>
+            <button onClick={handleGoogleAuth} className="text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg shadow-md">
+              Sign In with Google
+            </button>
           )}
         </div>
       </header>
 
-      {/* Hero Section */}
+      {/* Hero */}
       <section className="pt-16 pb-12 px-6 text-center max-w-4xl mx-auto">
         <h1 className="text-4xl sm:text-6xl font-extrabold text-slate-900 tracking-tight mb-4">
-          Easy scheduling ahead
+          AI Scheduling Built For Modern Teams
         </h1>
         <p className="text-lg text-slate-600 max-w-2xl mx-auto mb-8 font-normal">
-          Join 20 million professionals who easily book meetings with the #1 AI-powered scheduling tool.
+          The #1 Calendly Alternative with Unlimited Calendar Sync, Buffer Padding Times, and Automated Stripe Payments.
         </p>
-
-        <div className="flex flex-col sm:flex-row gap-3 justify-center max-w-md mx-auto mb-4">
-          <button
-            onClick={handleGoogleAuth}
-            className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg text-sm transition-all shadow-md"
-          >
-            <svg className="w-5 h-5 bg-white rounded-full p-0.5" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-            </svg>
-            Sign up with Google
-          </button>
-
-          <button
-            onClick={handleMicrosoftAuth}
-            className="flex items-center justify-center gap-3 bg-slate-900 hover:bg-black text-white font-semibold py-3 px-6 rounded-lg text-sm transition-all shadow-md"
-          >
-            <svg className="w-4 h-4 fill-current" viewBox="0 0 23 23">
-              <path d="M0 0h11v11H0zM12 0h11v11H0zM0 12h11v11H0zM12 12h11v11H12z"/>
-            </svg>
-            Sign up with Microsoft
-          </button>
-        </div>
       </section>
 
-      {/* Live Interactive Booking Widget (Free vs Paid Event) */}
+      {/* Multi-Appointment Service Selection Widget */}
       <section className="max-w-5xl mx-auto px-6 mb-20">
         <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden p-6 sm:p-8">
           
-          {/* Event Type Toggle Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-100">
-            <div>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-1">
-                Select Meeting Type
-              </span>
-              <h3 className="text-lg font-bold text-slate-900">Fatima Sy Scheduling Page</h3>
-            </div>
+          <h3 className="text-base font-bold text-slate-900 mb-4 uppercase tracking-wider">
+            Select Appointment Type:
+          </h3>
 
-            <div className="flex bg-slate-100 p-1 rounded-xl gap-1 self-start sm:self-auto">
-              <button
-                onClick={() => setEventType("free")}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                  eventType === "free"
-                    ? "bg-white text-blue-600 shadow-sm"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                Free Discovery Call ($0)
-              </button>
-              <button
-                onClick={() => setEventType("paid")}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
-                  eventType === "paid"
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                ⚡ Paid Strategy Session ($150)
-              </button>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-8">
+            <button
+              onClick={() => setSelectedService("consultation")}
+              className={`p-3 rounded-xl border text-left transition-all ${
+                selectedService === "consultation"
+                  ? "border-blue-600 bg-blue-50 ring-2 ring-blue-600/20"
+                  : "border-slate-200 hover:border-slate-300"
+              }`}
+            >
+              <div className="font-bold text-xs text-slate-900">Consultation Phone Call</div>
+              <div className="text-[11px] text-slate-500">15 mins • Free</div>
+            </button>
+
+            <button
+              onClick={() => setSelectedService("training")}
+              className={`p-3 rounded-xl border text-left transition-all ${
+                selectedService === "training"
+                  ? "border-blue-600 bg-blue-50 ring-2 ring-blue-600/20"
+                  : "border-slate-200 hover:border-slate-300"
+              }`}
+            >
+              <div className="font-bold text-xs text-slate-900">Personal Training / Coaching</div>
+              <div className="text-[11px] text-slate-500">30 mins • Free</div>
+            </button>
+
+            <button
+              onClick={() => setSelectedService("demo")}
+              className={`p-3 rounded-xl border text-left transition-all ${
+                selectedService === "demo"
+                  ? "border-blue-600 bg-blue-50 ring-2 ring-blue-600/20"
+                  : "border-slate-200 hover:border-slate-300"
+              }`}
+            >
+              <div className="font-bold text-xs text-slate-900">Live Demo Session</div>
+              <div className="text-[11px] text-slate-500">30 mins • Free</div>
+            </button>
+
+            <button
+              onClick={() => setSelectedService("strategy")}
+              className={`p-3 rounded-xl border text-left transition-all ${
+                selectedService === "strategy"
+                  ? "border-blue-600 bg-blue-50 ring-2 ring-blue-600/20"
+                  : "border-slate-200 hover:border-slate-300"
+              }`}
+            >
+              <div className="font-bold text-xs text-slate-900">⚡ Paid Strategy Session</div>
+              <div className="text-[11px] text-blue-600 font-bold">45 mins • $150 USD</div>
+            </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 divide-y md:divide-y-0 md:divide-x divide-slate-100">
-            {/* Host Details */}
+            {/* Host Info */}
             <div className="pr-4 space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-lg">
@@ -427,17 +296,15 @@ export default function Home() {
                 </div>
                 <div>
                   <h4 className="font-bold text-slate-900 text-base">Fatima Sy</h4>
-                  <p className="text-xs text-slate-500">
-                    {eventType === "paid" ? "45 min Paid Strategy Call" : "15 min Free Consultation"}
-                  </p>
+                  <p className="text-xs text-slate-500 uppercase font-semibold">{selectedService}</p>
                 </div>
               </div>
 
               <div className="space-y-2 text-xs text-slate-600 font-medium bg-slate-50 p-3 rounded-lg border border-slate-100">
-                <div className="flex items-center gap-2">🕒 Duration: {eventType === "paid" ? "45 mins" : "15 mins"}</div>
-                <div className="flex items-center gap-2">📹 Zoom / Google Meet Link</div>
-                <div className="flex items-center gap-2 font-bold text-slate-900">
-                  💳 Price: {eventType === "paid" ? "$150 USD via Stripe" : "Free ($0 USD)"}
+                <div>🕒 Buffer Padding: 15 mins included</div>
+                <div>📹 Zoom / Google Meet Link</div>
+                <div className="font-bold text-slate-900">
+                  💳 Price: {selectedService === "strategy" ? "$150 USD (Stripe)" : "Free ($0)"}
                 </div>
               </div>
 
@@ -461,7 +328,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Date Calendar Picker */}
+            {/* Calendar Picker */}
             <div className="pt-4 md:pt-0 md:px-6">
               <h5 className="font-bold text-slate-900 text-sm mb-4">Select a Date & Time</h5>
               <div className="bg-slate-50 p-4 rounded-xl text-center">
@@ -474,7 +341,7 @@ export default function Home() {
                     <button
                       key={i}
                       className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-medium transition-all ${
-                        i + 1 === 27
+                        i + 1 === 28
                           ? "bg-blue-600 text-white font-bold"
                           : "hover:bg-blue-50 text-slate-700"
                       }`}
@@ -484,14 +351,13 @@ export default function Home() {
                   ))}
                 </div>
               </div>
-              <p className="text-[11px] text-slate-400 mt-3 text-center">Time zone: Eastern Time - US & Canada (EST)</p>
             </div>
 
-            {/* Real Backend Slots */}
+            {/* Time Slots */}
             <div className="pt-4 md:pt-0 md:pl-6 space-y-3">
-              <h5 className="font-bold text-slate-900 text-sm mb-4">Available Real-Time Slots</h5>
+              <h5 className="font-bold text-slate-900 text-sm mb-4">Available EST Slots</h5>
               {loading ? (
-                <p className="text-xs text-slate-400 py-4 text-center">Fetching EST live slots from FastAPI...</p>
+                <p className="text-xs text-slate-400 py-4 text-center">Loading FastAPI slots...</p>
               ) : (
                 <div className="space-y-2">
                   {slots.slice(0, 4).map((s: any, idx: number) => (
@@ -512,7 +378,7 @@ export default function Home() {
                           disabled={bookingLoading}
                           className="bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs px-4 rounded-lg shadow-sm"
                         >
-                          {eventType === "paid" ? "Pay $150" : "Confirm"}
+                          {selectedService === "strategy" ? "Pay $150" : "Confirm"}
                         </button>
                       )}
                     </div>
@@ -522,10 +388,61 @@ export default function Home() {
 
               {booked && (
                 <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-lg font-medium text-center">
-                  ✓ {eventType === "paid" ? "$150 Paid & Booking Confirmed!" : "Booking Confirmed in FastAPI Database!"}
+                  ✓ Appointment Confirmed in FastAPI Database!
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* BookFlow AI vs Calendly Comparison Table */}
+      <section className="py-20 bg-slate-50 border-t border-slate-200 px-6">
+        <div className="max-w-5xl mx-auto">
+          <h2 className="text-3xl font-extrabold text-slate-900 text-center mb-4">
+            Why Teams Are Switching From Calendly to BookFlow AI
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-500 text-center max-w-xl mx-auto mb-12">
+            Get complete custom control, unlimited calendar connections, and built-in AI tools at a fraction of the cost.
+          </p>
+
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
+            <table className="w-full text-left text-xs sm:text-sm">
+              <thead className="bg-slate-900 text-white uppercase text-[11px] font-bold">
+                <tr>
+                  <th className="p-4">Features & Attributes</th>
+                  <th className="p-4 bg-blue-600 text-white">BookFlow AI</th>
+                  <th className="p-4">Calendly</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-medium">
+                <tr>
+                  <td className="p-4 font-bold text-slate-900">Customizing Colors & Branding</td>
+                  <td className="p-4 text-emerald-600 font-bold bg-blue-50/50">✓ Free & Unlimited Customization</td>
+                  <td className="p-4 text-slate-500">$144/year for basic customization</td>
+                </tr>
+                <tr>
+                  <td className="p-4 font-bold text-slate-900">Booking Form Experience</td>
+                  <td className="p-4 text-emerald-600 font-bold bg-blue-50/50">✓ Single-Step Auto-Detect Form</td>
+                  <td className="p-4 text-slate-500">Clunky multi-step process</td>
+                </tr>
+                <tr>
+                  <td className="p-4 font-bold text-slate-900">Team Member Booking</td>
+                  <td className="p-4 text-emerald-600 font-bold bg-blue-50/50">✓ Unlimited Team Members Included</td>
+                  <td className="p-4 text-slate-500">$16 / user / month</td>
+                </tr>
+                <tr>
+                  <td className="p-4 font-bold text-slate-900">Calendar Connections</td>
+                  <td className="p-4 text-emerald-600 font-bold bg-blue-50/50">✓ Unlimited Connections</td>
+                  <td className="p-4 text-slate-500">Max 6 (extra charges afterwards)</td>
+                </tr>
+                <tr>
+                  <td className="p-4 font-bold text-slate-900">Tracking & Analytics</td>
+                  <td className="p-4 text-emerald-600 font-bold bg-blue-50/50">✓ Google Analytics, FB Pixel & Segment</td>
+                  <td className="p-4 text-slate-500">Google Analytics only</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
